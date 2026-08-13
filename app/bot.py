@@ -63,23 +63,37 @@ class WidgetBot(discord.Client):
         self.widget = WidgetManager(self.settings, channel, self.pelican, bedrock, self.console, self.donations)
 
         guild_obj = discord.Object(id=self.settings.discord_guild_id)
-        self.tree.add_command(app_commands.Command(
-            name="donation_add", description="寄付者メッセージを掲示板に追加します",
-            callback=self._donation_add_command,
-        ), guild=guild_obj)
-        self.tree.add_command(app_commands.Command(
-            name="donation_remove", description="寄付者メッセージを削除します",
-            callback=self._donation_remove_command,
-        ), guild=guild_obj)
-        self.tree.add_command(app_commands.Command(
-            name="donation_list", description="寄付者メッセージを確認します",
-            callback=self._donation_list_command,
-        ), guild=guild_obj)
-        self.tree.add_command(app_commands.Command(
-            name="donation_clear", description="寄付者メッセージを全削除します",
-            callback=self._donation_clear_command,
-        ), guild=guild_obj)
-        await self.tree.sync(guild=guild_obj)
+        commands = (
+            app_commands.Command(
+                name="donation_add", description="寄付者メッセージを掲示板に追加します",
+                callback=self._donation_add_command,
+            ),
+            app_commands.Command(
+                name="donation_remove", description="寄付者メッセージを削除します",
+                callback=self._donation_remove_command,
+            ),
+            app_commands.Command(
+                name="donation_list", description="寄付者メッセージを確認します",
+                callback=self._donation_list_command,
+            ),
+            app_commands.Command(
+                name="donation_clear", description="寄付者メッセージを全削除します",
+                callback=self._donation_clear_command,
+            ),
+        )
+        for command in commands:
+            # Keep both scopes in sync. This also handles commands that were
+            # previously registered globally and are still shown by Discord.
+            self.tree.add_command(command, guild=guild_obj, override=True)
+            self.tree.add_command(command, override=True)
+
+        guild_commands = await self.tree.sync(guild=guild_obj)
+        global_commands = await self.tree.sync()
+        log.info(
+            "Synced donation commands: guild=%s global=%s",
+            [command.name for command in guild_commands if command.name.startswith("donation_")],
+            [command.name for command in global_commands if command.name.startswith("donation_")],
+        )
 
     def _can_manage_donations(self, interaction: discord.Interaction) -> bool:
         if not isinstance(interaction.user, discord.Member):
