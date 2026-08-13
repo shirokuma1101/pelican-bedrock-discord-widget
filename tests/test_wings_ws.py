@@ -52,6 +52,14 @@ def test_comma_separated_player_list_line():
     ]
 
 
+def test_player_names_with_spaces_are_parsed():
+    assert _parse_player_line("Lavender 2414") == "Lavender 2414"
+    assert _parse_player_list_line("akm19gu, Lavender 2414") == [
+        "akm19gu",
+        "Lavender 2414",
+    ]
+
+
 def test_alt_count_format():
     from app.wings_ws import PLAYER_COUNT_ALT_RE
     line = "There are 2 of a max of 20 players online:"

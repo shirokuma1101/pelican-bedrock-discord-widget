@@ -40,6 +40,12 @@ XUID_PLAYER_RE = re.compile(
     re.I,
 )
 
+# Bedrock names may contain spaces. Keep the accepted character set narrow so
+# ordinary console messages are not mistaken for player names.
+BARE_PLAYER_RE = re.compile(
+    r"^[A-Za-z0-9_]+(?:[ .'-][A-Za-z0-9_]+)*$"
+)
+
 JOIN_PATTERNS = (
     re.compile(r"(?:Player connected:|joined the game:?)\s*([^\s]+)", re.I),
     re.compile(r"^\[.*?\]\s*([^\s]+) joined the game", re.I),
@@ -407,7 +413,7 @@ def _parse_player_line(line: str) -> str | None:
     lowered = line.casefold()
     if (
         1 <= len(line) <= 32
-        and re.fullmatch(r"[A-Za-z0-9_]+", line) is not None
+        and BARE_PLAYER_RE.fullmatch(line) is not None
         and lowered not in {"list", "players", "online", "server", "started"}
     ):
         return line
