@@ -1,0 +1,13 @@
+services:
+  pelican-bedrock-widget:
+    build: .
+    container_name: pelican-bedrock-widget
+    restart: unless-stopped
+    env_file:
+      - .env
+    init: true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

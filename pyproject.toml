@@ -1,0 +1,8 @@
+[project]
+name = "pelican-bedrock-discord-widget"
+version = "0.1.0"
+description = "Discord status widget for a Pelican-managed Vanilla Bedrock server"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

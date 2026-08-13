@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import logging
+
+import discord
+
+from .bedrock import BedrockClient
+from .config import Settings
+from .donations import DonationStore
+from .embed import make_embed
+from .models import BedrockStatus, ConsoleSnapshot, PelicanServer, Resources, WidgetData
+from .pelican import PelicanClient
+from .views import ControlView
+from .wings_ws import WingsConsole
+
+log = logging.getLogger(__name__)
+
+
+class WidgetManager:
+    def __init__(self, settings: Settings, channel: discord.TextChannel,
+                 pelican: PelicanClient, bedrock: BedrockClient,
+                 console: WingsConsole | None,
+                 donations: DonationStore) -> None:
+        self.settings = settings
+        self.channel = channel
+        self.pelican = pelican
+        self.bedrock = bedrock
+        self.console = console
+        self.donations = donations
+        self.message: discord.Message | None = None
+
+    async def initialize(self) -> None:
+        if self.settings.discord_message_id:
+            try:
+                self.message = await self.channel.fetch_message(self.settings.discord_message_id)
+                return
+            except discord.NotFound:
+                log.warning('Configured widget message was not found.')
+        self.message = await self.channel.send('Initializing server widget...')
+        log.info('Created widget message ID: %s', self.message.id)
+
+    async def update(self) -> None:
+        if self.message is None:
+            await self.initialize()
+        errors: list[str] = []
+        try:
+            server = await self.pelican.get_server()
+        except Exception as exc:
+            server = PelicanServer(identifier=self.settings.pelican_server_id,
+                                   name=self.settings.server_display_name)
+            errors.append(f'Pelican server: {exc}')
+        try:
+            resources = await self.pelican.get_resources()
+        except Exception as exc:
+            resources = Resources()
+            errors.append(f'Pelican resources: {exc}')
+        try:
+            bedrock = await self.bedrock.status()
+        except Exception as exc:
+            bedrock = BedrockStatus()
+            errors.append(f'Bedrock: {exc}')
+        console = await self.console.snapshot() if self.console else ConsoleSnapshot()
+        if self.settings.console_enabled and not console.connected:
+            errors.append(f'Wings console: {console.last_error}' if console.last_error else 'Wings console: connecting...')
+        data = WidgetData(server=server, resources=resources, bedrock=bedrock,
+                          console=console, last_updated=datetime.now(timezone.utc),
+                          errors=errors, donations=self.donations.all())
+        view = ControlView(self.pelican, self.settings) if self.settings.enable_control_buttons else None
+        await self.message.edit(content=None, embed=make_embed(data, self.settings), view=view)

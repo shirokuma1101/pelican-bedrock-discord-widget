@@ -1,0 +1,21 @@
+[Unit]
+Description=Pelican Bedrock Discord Widget
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=discordbot
+Group=discordbot
+WorkingDirectory=/opt/pelican-bedrock-discord-widget
+EnvironmentFile=/opt/pelican-bedrock-discord-widget/.env
+ExecStart=/opt/pelican-bedrock-discord-widget/.venv/bin/python -m app
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
