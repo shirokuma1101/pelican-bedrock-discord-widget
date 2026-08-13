@@ -72,7 +72,7 @@ class Settings:
             update_interval_seconds=max(5, integer('UPDATE_INTERVAL_SECONDS', 15)),
             public_address=os.getenv('PUBLIC_ADDRESS', '').strip(),
             console_enabled=boolean('CONSOLE_ENABLED', True),
-            console_log_lines=min(5, max(1, integer('CONSOLE_LOG_LINES', 5))),
+            console_log_lines=min(5, max(0, integer('CONSOLE_LOG_LINES', 5))),
             player_list_enabled=boolean('PLAYER_LIST_ENABLED', True),
             player_list_command_interval_seconds=max(10, integer('PLAYER_LIST_COMMAND_INTERVAL_SECONDS', 30)),
             max_players_displayed=max(1, integer('MAX_PLAYERS_DISPLAYED', 20)),

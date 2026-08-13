@@ -75,7 +75,7 @@ class WingsConsole:
         self.server_id = server_id
         self.api_token = api_token
         self.session = session
-        self.log_lines = max(1, log_lines)
+        self.log_lines = max(0, log_lines)
         self.player_command_interval = max(10, player_command_interval)
         self.player_list_enabled = player_list_enabled
 
@@ -87,7 +87,7 @@ class WingsConsole:
         self._players: set[str] = set()
         self._console_online: int | None = None
         self._console_max: int | None = None
-        self._logs: deque[str] = deque(maxlen=self.log_lines)
+        self._logs: deque[str] = deque(maxlen=self.log_lines or 1)
         self._connected = False
         self._last_error: str | None = None
 
@@ -343,7 +343,8 @@ class WingsConsole:
                 if XUID_PLAYER_RE.match(line):
                     continue
 
-                self._logs.append(line[:500])
+                if self.log_lines > 0:
+                    self._logs.append(line[:500])
 
                 # Live join/leave events keep the snapshot current between
                 # explicit `list` responses.

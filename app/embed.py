@@ -26,31 +26,33 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         colour=colour,
     )
 
-    embed.add_field(
-        name="CPU使用率",
-        value=f"`{cpu_text(data.resources.cpu_absolute, data.server.cpu_limit)}`",
-        inline=True,
-    )
-    embed.add_field(
-        name="メモリ使用率",
-        value=f"`{memory_text(data.resources.memory_bytes, data.server.memory_limit_mb)}`",
-        inline=True,
-    )
-    embed.add_field(
-        name="ディスク使用量",
-        value=f"`{disk_text(data.resources.disk_bytes, data.server.disk_limit_mb)}`",
-        inline=True,
-    )
-
     address = settings.public_address or f"{settings.bedrock_host}:{settings.bedrock_port}"
-    embed.add_field(name="アドレス", value=f"`{address}`", inline=True)
 
     connection_state = "🟢 接続" if data.bedrock.online else "🔴 未接続"
-    mc_info = (
-        f"**接続状態**\n`{connection_state}`\n"
-        f"**Version**\n`{data.bedrock.version or 'N/A'}`"
+    donation_lines = [
+        f"**#{item.id} {item.donor}**\n{item.message}"
+        for item in data.donations[-5:]
+    ]
+    donation_text = "\n\n".join(donation_lines) or "なし"
+    if len(donation_text) > 1024:
+        donation_text = "…" + donation_text[-1023:]
+    embed.add_field(name="📌 寄付者メッセージ", value=donation_text, inline=False)
+
+    embed.add_field(
+        name="接続状態",
+        value=f"`{connection_state}`",
+        inline=True,
     )
-    embed.add_field(name="マイクラについて", value=mc_info, inline=False)
+    embed.add_field(
+        name="アドレス",
+        value=f"`{address}`",
+        inline=True,
+    )
+    embed.add_field(
+        name="Version",
+        value=f"`{data.bedrock.version or 'N/A'}`",
+        inline=True,
+    )
 
     if data.bedrock.online:
         console_count = (
@@ -83,6 +85,22 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     embed.add_field(
         name="プレイヤー",
         value=player_text,
+        inline=False,
+    )
+
+    embed.add_field(
+        name="CPU使用率",
+        value=f"`{cpu_text(data.resources.cpu_absolute, data.server.cpu_limit)}`",
+        inline=True,
+    )
+    embed.add_field(
+        name="メモリ使用率",
+        value=f"`{memory_text(data.resources.memory_bytes, data.server.memory_limit_mb)}`",
+        inline=True,
+    )
+    embed.add_field(
+        name="ディスク使用量",
+        value=f"`{disk_text(data.resources.disk_bytes, data.server.disk_limit_mb)}`",
         inline=True,
     )
 
@@ -103,21 +121,10 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         )
 
     if settings.ko_fi_url:
-        embed.add_field(
-            name="☕ サポート",
-            value=f"[Ko-fiで支援する]({settings.ko_fi_url})",
-            inline=False,
-        )
-
-    if data.donations:
-        donation_lines = [
-            f"**#{item.id} {item.donor}**\n{item.message}"
-            for item in data.donations[-5:]
-        ]
-        donation_text = "\n\n".join(donation_lines)
-        if len(donation_text) > 1024:
-            donation_text = "…" + donation_text[-1023:]
-        embed.add_field(name="📌 寄付者メッセージ", value=donation_text, inline=False)
+        support_text = f"[Ko-fiで支援する]({settings.ko_fi_url})"
+    else:
+        support_text = "未設定"
+    embed.add_field(name="☕ サポート", value=support_text, inline=False)
 
     embed.set_footer(
         text=f"{settings.update_interval_seconds}秒更新 / 更新: {update_text(data.last_updated)}"
