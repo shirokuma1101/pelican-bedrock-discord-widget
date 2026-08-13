@@ -65,19 +65,19 @@ class WidgetBot(discord.Client):
         guild_obj = discord.Object(id=self.settings.discord_guild_id)
         commands = (
             app_commands.Command(
-                name="donation_add", description="寄付者メッセージを掲示板に追加します",
+                name="donation_add", description="寄付者からのひとことを掲示板に追加します",
                 callback=self._donation_add_command,
             ),
             app_commands.Command(
-                name="donation_remove", description="寄付者メッセージを削除します",
+                name="donation_remove", description="寄付者からのひとことを削除します",
                 callback=self._donation_remove_command,
             ),
             app_commands.Command(
-                name="donation_list", description="寄付者メッセージを確認します",
+                name="donation_list", description="寄付者からのひとことを確認します",
                 callback=self._donation_list_command,
             ),
             app_commands.Command(
-                name="donation_clear", description="寄付者メッセージを全削除します",
+                name="donation_clear", description="寄付者からのひとことを全削除します",
                 callback=self._donation_clear_command,
             ),
         )
@@ -118,7 +118,7 @@ class WidgetBot(discord.Client):
             await interaction.response.send_message("寄付者名は32文字以内、メッセージは500文字以内で入力してください。", ephemeral=True)
             return
         item = self.donations.add(donor, message)
-        await interaction.response.send_message(f"寄付者メッセージ #{item.id} を追加しました。", ephemeral=True)
+        await interaction.response.send_message(f"寄付者からのひとこと #{item.id} を追加しました。", ephemeral=True)
 
     async def _donation_remove_command(self, interaction: discord.Interaction, item_id: int) -> None:
         if await self._deny_donation_command(interaction):

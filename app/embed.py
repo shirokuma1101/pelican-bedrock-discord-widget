@@ -22,22 +22,12 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
 
     embed = discord.Embed(
         title=title[:256],
-        description=f"**現在の状態**\n`{state}`",
         colour=colour,
     )
 
     address = settings.public_address or f"{settings.bedrock_host}:{settings.bedrock_port}"
 
     connection_state = "🟢 接続" if data.bedrock.online else "🔴 未接続"
-    donation_lines = [
-        f"**#{item.id} {item.donor}**\n{item.message}"
-        for item in data.donations[-5:]
-    ]
-    donation_text = "\n\n".join(donation_lines) or "なし"
-    if len(donation_text) > 1024:
-        donation_text = "…" + donation_text[-1023:]
-    embed.add_field(name="📌 寄付者メッセージ", value=donation_text, inline=False)
-
     embed.add_field(
         name="接続状態",
         value=f"`{connection_state}`",
@@ -125,6 +115,15 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     else:
         support_text = "未設定"
     embed.add_field(name="☕ サポート", value=support_text, inline=False)
+
+    donation_lines = [
+        f"**#{item.id} {item.donor}**\n{item.message}"
+        for item in data.donations[-5:]
+    ]
+    donation_text = "\n\n".join(donation_lines) or "なし"
+    if len(donation_text) > 1024:
+        donation_text = "…" + donation_text[-1023:]
+    embed.add_field(name="📌 寄付者からのひとこと", value=donation_text, inline=False)
 
     embed.set_footer(
         text=f"{settings.update_interval_seconds}秒更新 / 更新: {update_text(data.last_updated)}"
