@@ -16,7 +16,7 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         state, colour = "🔴 OFFLINE", discord.Colour.red()
 
     motd = (data.bedrock.motd or "").strip()
-    title = f"🖥️ {settings.server_display_name}"
+    title = f"🖥️ {data.server.name}"
     if motd:
         title += f"｜{motd}"
 

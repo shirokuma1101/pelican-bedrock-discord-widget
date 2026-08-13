@@ -48,7 +48,7 @@ class WidgetManager:
             server = await self.pelican.get_server()
         except Exception as exc:
             server = PelicanServer(identifier=self.settings.pelican_server_id,
-                                   name=self.settings.server_display_name)
+                                   name=self.settings.pelican_server_id)
             errors.append(f'Pelican server: {exc}')
         try:
             resources = await self.pelican.get_resources()

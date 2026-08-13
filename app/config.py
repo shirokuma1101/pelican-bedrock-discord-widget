@@ -43,7 +43,6 @@ class Settings:
     bedrock_host: str
     bedrock_port: int
     update_interval_seconds: int
-    server_display_name: str
     public_address: str
     console_enabled: bool
     console_log_lines: int
@@ -71,7 +70,6 @@ class Settings:
             bedrock_host=os.getenv('BEDROCK_HOST', '127.0.0.1'),
             bedrock_port=integer('BEDROCK_PORT', 19132),
             update_interval_seconds=max(5, integer('UPDATE_INTERVAL_SECONDS', 15)),
-            server_display_name=os.getenv('SERVER_DISPLAY_NAME', 'Vanilla Bedrock'),
             public_address=os.getenv('PUBLIC_ADDRESS', '').strip(),
             console_enabled=boolean('CONSOLE_ENABLED', True),
             console_log_lines=min(5, max(1, integer('CONSOLE_LOG_LINES', 5))),
