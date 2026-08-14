@@ -91,14 +91,16 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         value=ranking_text,
         inline=True,
     )
+    # Fill the third inline column so resource fields start on the next row.
+    embed.add_field(name="\u200b", value="\u200b", inline=True)
 
     embed.add_field(
-        name="CPU使用率",
+        name="CPU使用量",
         value=f"`{cpu_text(data.resources.cpu_absolute, data.server.cpu_limit)}`",
         inline=True,
     )
     embed.add_field(
-        name="メモリ使用率",
+        name="メモリ使用量",
         value=f"`{memory_text(data.resources.memory_bytes, data.server.memory_limit_mb)}`",
         inline=True,
     )
