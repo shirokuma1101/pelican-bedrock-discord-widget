@@ -59,3 +59,4 @@ class WidgetData:
     last_updated: datetime
     errors: list[str]
     donations: list[DonationMessage] = field(default_factory=list)
+    playtime_ranking: list[tuple[str, int]] = field(default_factory=list)

@@ -8,6 +8,7 @@ import discord
 from .bedrock import BedrockClient
 from .config import Settings
 from .donations import DonationStore
+from .playtime import PlaytimeStore
 from .embed import make_embed
 from .models import BedrockStatus, ConsoleSnapshot, PelicanServer, Resources, WidgetData
 from .pelican import PelicanClient
@@ -21,13 +22,15 @@ class WidgetManager:
     def __init__(self, settings: Settings, channel: discord.TextChannel,
                  pelican: PelicanClient, bedrock: BedrockClient,
                  console: WingsConsole | None,
-                 donations: DonationStore) -> None:
+                 donations: DonationStore,
+                 playtime: PlaytimeStore) -> None:
         self.settings = settings
         self.channel = channel
         self.pelican = pelican
         self.bedrock = bedrock
         self.console = console
         self.donations = donations
+        self.playtime = playtime
         self.message: discord.Message | None = None
 
     async def initialize(self) -> None:
@@ -65,6 +68,8 @@ class WidgetManager:
             errors.append(f'Wings console: {console.last_error}' if console.last_error else 'Wings console: connecting...')
         data = WidgetData(server=server, resources=resources, bedrock=bedrock,
                           console=console, last_updated=datetime.now(timezone.utc),
-                          errors=errors, donations=self.donations.all())
+                          errors=errors,
+                          donations=self.donations.all(),
+                          playtime_ranking=self.playtime.ranking())
         view = ControlView(self.pelican, self.settings) if self.settings.enable_control_buttons else None
         await self.message.edit(content=None, embed=make_embed(data, self.settings), view=view)

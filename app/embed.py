@@ -5,6 +5,7 @@ import discord
 from .config import Settings
 from .formatting import cpu_text, disk_text, memory_text, update_text
 from .models import WidgetData
+from .playtime import format_duration
 
 
 def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
@@ -75,7 +76,20 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     embed.add_field(
         name="プレイヤー",
         value=player_text,
-        inline=False,
+        inline=True,
+    )
+
+    if data.playtime_ranking:
+        ranking_text = "\n".join(
+            f"**{index}位** {player} — `{format_duration(seconds)}`"
+            for index, (player, seconds) in enumerate(data.playtime_ranking[:5], 1)
+        )
+    else:
+        ranking_text = "なし"
+    embed.add_field(
+        name="🏆 プレイ時間ランキング",
+        value=ranking_text,
+        inline=True,
     )
 
     embed.add_field(

@@ -13,6 +13,7 @@ import websockets
 from websockets.asyncio.client import ClientConnection
 
 from .models import ConsoleSnapshot
+from .playtime import PlaytimeStore
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ class WingsConsole:
         log_lines: int = 8,
         player_command_interval: int = 30,
         player_list_enabled: bool = True,
+        playtime: PlaytimeStore | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.server_id = server_id
@@ -78,6 +80,7 @@ class WingsConsole:
         self.log_lines = max(0, log_lines)
         self.player_command_interval = max(10, player_command_interval)
         self.player_list_enabled = player_list_enabled
+        self.playtime = playtime
 
         self._task: asyncio.Task | None = None
         self._ws: ClientConnection | None = None
@@ -297,6 +300,8 @@ class WingsConsole:
                     # the new continuation lines are still arriving.
                     self._players.clear()
                     self._collecting_player_list = self._console_online > 0
+                    if self._console_online == 0 and self.playtime:
+                        self.playtime.sync_online([])
 
                     # Some Bedrock builds put the names on the same line.
                     inline = count_match.group(3).strip()
@@ -306,6 +311,8 @@ class WingsConsole:
 
                         if len(self._players) >= self._console_online:
                             self._collecting_player_list = False
+                            if self.playtime:
+                                self.playtime.sync_online(sorted(self._players))
 
                     continue
 
@@ -334,6 +341,8 @@ class WingsConsole:
                                 and len(self._players) >= self._console_online
                             ):
                                 self._collecting_player_list = False
+                                if self.playtime:
+                                    self.playtime.sync_online(sorted(self._players))
 
                             continue
 
@@ -352,12 +361,16 @@ class WingsConsole:
                     match = pattern.search(line)
                     if match:
                         self._players.add(match.group(1))
+                        if self.playtime:
+                            self.playtime.mark_online(match.group(1))
                         break
 
                 for pattern in LEAVE_PATTERNS:
                     match = pattern.search(line)
                     if match:
                         self._players.discard(match.group(1))
+                        if self.playtime:
+                            self.playtime.mark_offline(match.group(1))
                         break
 
 

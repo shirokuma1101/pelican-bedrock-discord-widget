@@ -51,6 +51,7 @@ class Settings:
     max_players_displayed: int
     ko_fi_url: str
     donations_file: str
+    playtime_file: str
     enable_control_buttons: bool
     control_role_ids: FrozenSet[int]
     log_level: str
@@ -78,6 +79,7 @@ class Settings:
             max_players_displayed=max(1, integer('MAX_PLAYERS_DISPLAYED', 20)),
             ko_fi_url=os.getenv('KO_FI_URL', '').strip(),
             donations_file=os.getenv('DONATIONS_FILE', 'data/donations.json').strip(),
+            playtime_file=os.getenv('PLAYTIME_FILE', 'data/playtime.json').strip(),
             enable_control_buttons=boolean('ENABLE_CONTROL_BUTTONS', False),
             control_role_ids=role_ids(),
             log_level=os.getenv('LOG_LEVEL', 'INFO'),

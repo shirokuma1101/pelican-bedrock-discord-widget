@@ -11,6 +11,7 @@ from .bedrock import BedrockClient
 from .config import Settings
 from .donations import DonationStore
 from .pelican import PelicanClient
+from .playtime import PlaytimeStore, format_duration
 from .widget import WidgetManager
 from .wings_ws import WingsConsole
 
@@ -30,6 +31,7 @@ class WidgetBot(discord.Client):
         self.console: WingsConsole | None = None
         self.widget: WidgetManager | None = None
         self.donations: DonationStore | None = None
+        self.playtime: PlaytimeStore | None = None
         self.tree = app_commands.CommandTree(self)
         self.loop_task: asyncio.Task | None = None
 
@@ -39,6 +41,7 @@ class WidgetBot(discord.Client):
                                      self.settings.pelican_server_id,
                                      self.settings.pelican_client_api_token,
                                      self.session)
+        self.playtime = PlaytimeStore(self.settings.playtime_file)
         bedrock = BedrockClient(self.settings.bedrock_host, self.settings.bedrock_port)
         if self.settings.console_enabled:
             self.console = WingsConsole(
@@ -49,6 +52,7 @@ class WidgetBot(discord.Client):
                 log_lines=self.settings.console_log_lines,
                 player_command_interval=self.settings.player_list_command_interval_seconds,
                 player_list_enabled=self.settings.player_list_enabled,
+                playtime=self.playtime,
             )
             await self.console.start()
         guild = self.get_guild(self.settings.discord_guild_id)
@@ -60,7 +64,10 @@ class WidgetBot(discord.Client):
         if not isinstance(channel, discord.TextChannel):
             raise RuntimeError('DISCORD_CHANNEL_ID is not a text channel')
         self.donations = DonationStore(self.settings.donations_file)
-        self.widget = WidgetManager(self.settings, channel, self.pelican, bedrock, self.console, self.donations)
+        self.widget = WidgetManager(
+            self.settings, channel, self.pelican, bedrock, self.console,
+            self.donations, self.playtime,
+        )
 
         guild_obj = discord.Object(id=self.settings.discord_guild_id)
         commands = (
@@ -87,12 +94,30 @@ class WidgetBot(discord.Client):
             self.tree.add_command(command, guild=guild_obj, override=True)
             self.tree.add_command(command, override=True)
 
+        playtime_commands = (
+            app_commands.Command(
+                name="playtime", description="プレイヤーの累計プレイ時間を表示します",
+                callback=self._playtime_command,
+            ),
+            app_commands.Command(
+                name="playtime_ranking", description="プレイ時間ランキングを表示します",
+                callback=self._playtime_ranking_command,
+            ),
+            app_commands.Command(
+                name="playtime_reset", description="プレイ時間ランキングをリセットします",
+                callback=self._playtime_reset_command,
+            ),
+        )
+        for command in playtime_commands:
+            self.tree.add_command(command, guild=guild_obj, override=True)
+            self.tree.add_command(command, override=True)
+
         guild_commands = await self.tree.sync(guild=guild_obj)
         global_commands = await self.tree.sync()
         log.info(
-            "Synced donation commands: guild=%s global=%s",
-            [command.name for command in guild_commands if command.name.startswith("donation_")],
-            [command.name for command in global_commands if command.name.startswith("donation_")],
+            "Synced commands: guild=%s global=%s",
+            [command.name for command in guild_commands],
+            [command.name for command in global_commands],
         )
 
     def _can_manage_donations(self, interaction: discord.Interaction) -> bool:
@@ -119,6 +144,38 @@ class WidgetBot(discord.Client):
             return
         item = self.donations.add(donor, message)
         await interaction.response.send_message(f"寄付者からのひとこと #{item.id} を追加しました。", ephemeral=True)
+
+    async def _playtime_command(self, interaction: discord.Interaction, player: str) -> None:
+        assert self.playtime is not None
+        player = player.strip()
+        if not player or len(player) > 32:
+            await interaction.response.send_message("プレイヤー名を32文字以内で入力してください。", ephemeral=True)
+            return
+        await interaction.response.send_message(
+            f"**{player}** の累計プレイ時間: `{format_duration(self.playtime.total_seconds(player))}`",
+            ephemeral=True,
+        )
+
+    async def _playtime_ranking_command(self, interaction: discord.Interaction) -> None:
+        assert self.playtime is not None
+        rows = self.playtime.ranking()[:10]
+        if rows:
+            text = "\n".join(
+                f"**{index}位** {name} — `{format_duration(seconds)}`"
+                for index, (name, seconds) in enumerate(rows, 1)
+            )
+        else:
+            text = "まだプレイ時間の記録がありません。"
+        await interaction.response.send_message(
+            f"🏆 プレイ時間ランキング\n{text}"
+        )
+
+    async def _playtime_reset_command(self, interaction: discord.Interaction) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        assert self.playtime is not None
+        self.playtime.reset()
+        await interaction.response.send_message("プレイ時間ランキングをリセットしました。", ephemeral=True)
 
     async def _donation_remove_command(self, interaction: discord.Interaction, item_id: int) -> None:
         if await self._deny_donation_command(interaction):

@@ -144,6 +144,21 @@ commands:
 Messages are stored in `data/donations.json`, and the latest five entries are
 shown at the bottom of the widget. Keep the `data/` directory outside Git.
 
+## Playtime ranking
+
+The bot records cumulative online time from Wings join/leave events and
+periodic `list` results. Data is stored in `PLAYTIME_FILE` (default:
+`data/playtime.json`) without additional dependencies.
+
+```text
+/playtime player:名前
+/playtime_ranking
+/playtime_reset
+```
+
+`/playtime_reset` is restricted to Discord administrators and roles listed in
+`CONTROL_ROLE_IDS`.
+
 ## API routes used
 
 The code uses the Pelican/Pterodactyl-compatible Client API:
