@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -13,6 +13,8 @@ class PlaytimeStore:
     def __init__(self, filename: str) -> None:
         self.path = Path(filename)
         self._items: dict[str, dict] = {}
+        self.period_started_at: datetime = self._now()
+        self._last_reset_check: str | None = None
         self._load()
 
     @staticmethod
@@ -28,14 +30,29 @@ class PlaytimeStore:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError):
             raw = {}
-        self._items = raw if isinstance(raw, dict) else {}
+        if isinstance(raw, dict) and isinstance(raw.get("players"), dict):
+            self._items = raw["players"]
+            meta = raw.get("_meta", {})
+            started = meta.get("period_started_at") if isinstance(meta, dict) else None
+        else:
+            # Migrate the original flat player dictionary format.
+            self._items = raw if isinstance(raw, dict) else {}
+            started = None
+        if started:
+            try:
+                self.period_started_at = datetime.fromisoformat(started)
+            except ValueError:
+                pass
 
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp_name = tempfile.mkstemp(prefix="playtime-", suffix=".tmp", dir=self.path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as file:
-                json.dump(self._items, file, ensure_ascii=False, indent=2)
+                json.dump({
+                    "_meta": {"period_started_at": self.period_started_at.isoformat()},
+                    "players": self._items,
+                }, file, ensure_ascii=False, indent=2)
                 file.write("\n")
                 file.flush()
                 os.fsync(file.fileno())
@@ -113,9 +130,32 @@ class PlaytimeStore:
         result = [(str(item.get("player", key)), self._total(item, timestamp)) for key, item in self._items.items()]
         return sorted(result, key=lambda value: (-value[1], value[0].casefold()))
 
-    def reset(self) -> None:
-        self._items.clear()
+    def reset(self, now: datetime | None = None) -> None:
+        timestamp = now or self._now()
+        for item in self._items.values():
+            item["total_seconds"] = 0
+            item["active_since"] = timestamp.isoformat() if item.get("active_since") else None
+        self.period_started_at = timestamp
         self._save()
+
+    def maybe_reset(self, cron_expression: str) -> bool:
+        """Reset after the latest missed or current cron occurrence."""
+        expression = cron_expression.strip()
+        if not expression:
+            return False
+        now = datetime.now().astimezone().replace(second=0, microsecond=0)
+        check_key = now.strftime("%Y-%m-%d-%H-%M")
+        if self._last_reset_check == check_key:
+            return False
+        self._last_reset_check = check_key
+        scheduled = _previous_cron_minute(expression, now)
+        if scheduled is None:
+            return False
+        started_local = self.period_started_at.astimezone()
+        if started_local >= scheduled:
+            return False
+        self.reset(now.astimezone(timezone.utc))
+        return True
 
     @staticmethod
     def _total(item: dict, now: datetime | None = None) -> int:
@@ -138,3 +178,58 @@ def format_duration(seconds: int) -> str:
     if hours:
         return f"{hours}時間{minutes}分"
     return f"{minutes}分"
+
+
+def _cron_field_matches(value: int, field: str, minimum: int, maximum: int) -> bool:
+    for part in field.split(","):
+        part = part.strip()
+        if not part:
+            return False
+        base, _, step_text = part.partition("/")
+        step = int(step_text) if step_text else 1
+        if step <= 0:
+            return False
+        if base == "*":
+            start, end = minimum, maximum
+        elif "-" in base:
+            start_text, end_text = base.split("-", 1)
+            start, end = int(start_text), int(end_text)
+        else:
+            start = end = int(base)
+        if minimum <= start <= end <= maximum and (value - start) % step == 0:
+            return True
+    return False
+
+
+def _cron_matches(expression: str, value: datetime) -> bool:
+    fields = expression.split()
+    if len(fields) != 5:
+        return False
+    minute, hour, day, month, weekday = fields
+    if not _cron_field_matches(value.minute, minute, 0, 59):
+        return False
+    if not _cron_field_matches(value.hour, hour, 0, 23):
+        return False
+    if not _cron_field_matches(value.month, month, 1, 12):
+        return False
+    day_match = _cron_field_matches(value.day, day, 1, 31)
+    weekday_match = _cron_field_matches((value.weekday() + 1) % 7, weekday, 0, 6)
+    day_restricted = day != "*"
+    weekday_restricted = weekday != "*"
+    if day_restricted and weekday_restricted:
+        return day_match or weekday_match
+    return day_match and weekday_match
+
+
+def _previous_cron_minute(expression: str, now: datetime) -> datetime | None:
+    if len(expression.split()) != 5:
+        return None
+    cursor = now
+    for _ in range(366 * 24 * 60):
+        try:
+            if _cron_matches(expression, cursor):
+                return cursor
+        except (TypeError, ValueError):
+            return None
+        cursor -= timedelta(minutes=1)
+    return None

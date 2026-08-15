@@ -46,6 +46,7 @@ class WidgetManager:
     async def update(self) -> None:
         if self.message is None:
             await self.initialize()
+        self.playtime.maybe_reset(self.settings.playtime_reset_cron)
         errors: list[str] = []
         try:
             server = await self.pelican.get_server()
@@ -70,6 +71,7 @@ class WidgetManager:
                           console=console, last_updated=datetime.now(timezone.utc),
                           errors=errors,
                           donations=self.donations.all(),
-                          playtime_ranking=self.playtime.ranking())
+                          playtime_ranking=self.playtime.ranking(),
+                          playtime_started_at=self.playtime.period_started_at)
         view = ControlView(self.pelican, self.settings) if self.settings.enable_control_buttons else None
         await self.message.edit(content=None, embed=make_embed(data, self.settings), view=view)

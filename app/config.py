@@ -52,6 +52,7 @@ class Settings:
     ko_fi_url: str
     donations_file: str
     playtime_file: str
+    playtime_reset_cron: str
     enable_control_buttons: bool
     control_role_ids: FrozenSet[int]
     log_level: str
@@ -80,6 +81,7 @@ class Settings:
             ko_fi_url=os.getenv('KO_FI_URL', '').strip(),
             donations_file=os.getenv('DONATIONS_FILE', 'data/donations.json').strip(),
             playtime_file=os.getenv('PLAYTIME_FILE', 'data/playtime.json').strip(),
+            playtime_reset_cron=os.getenv('PLAYTIME_RESET_CRON', '').strip(),
             enable_control_buttons=boolean('ENABLE_CONTROL_BUTTONS', False),
             control_role_ids=role_ids(),
             log_level=os.getenv('LOG_LEVEL', 'INFO'),

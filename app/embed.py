@@ -25,6 +25,10 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         title=title[:256],
         colour=colour,
     )
+    embed.set_author(
+        name="GitHub",
+        url="https://github.com/shirokuma1101/pelican-bedrock-discord-widget",
+    )
 
     address = settings.public_address or f"{settings.bedrock_host}:{settings.bedrock_port}"
 
@@ -88,7 +92,11 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         ranking_text = "なし"
     embed.add_field(
         name="🏆 プレイ時間ランキング",
-        value=ranking_text,
+        value=(
+            f"統計開始: `{data.playtime_started_at.astimezone().strftime('%Y-%m-%d')}`\n{ranking_text}"
+            if data.playtime_started_at is not None
+            else ranking_text
+        ),
         inline=True,
     )
     # Fill the third inline column so resource fields start on the next row.

@@ -159,6 +159,17 @@ periodic `list` results. Data is stored in `PLAYTIME_FILE` (default:
 `/playtime_reset` is restricted to Discord administrators and roles listed in
 `CONTROL_ROLE_IDS`.
 
+Set `PLAYTIME_RESET_CRON` to a standard five-field cron expression to reset
+the ranking automatically. The default example resets at 00:00 on the first
+day of each month in the server's local timezone:
+
+```dotenv
+PLAYTIME_RESET_CRON=0 0 1 * *
+```
+
+Leave it empty to disable automatic resets. The current statistics start date
+is shown in the playtime ranking field of the Embed.
+
 ## API routes used
 
 The code uses the Pelican/Pterodactyl-compatible Client API:
