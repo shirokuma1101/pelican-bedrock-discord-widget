@@ -203,6 +203,23 @@ class WingsConsole:
                 "args": [jwt_token],
             }))
 
+            while True:
+                auth_raw = await asyncio.wait_for(ws.recv(), timeout=10)
+                if isinstance(auth_raw, bytes):
+                    auth_raw = auth_raw.decode("utf-8", errors="replace")
+                try:
+                    auth_message = json.loads(auth_raw)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError("Wings returned invalid auth response") from exc
+                auth_event = auth_message.get("event")
+                if auth_event == "auth success":
+                    break
+                if auth_event in {"jwt error", "daemon error"}:
+                    args = auth_message.get("args") or []
+                    raise RuntimeError(
+                        f"{auth_event}: {' '.join(str(x) for x in args)}"
+                    )
+
             await ws.send(json.dumps({
                 "event": "send logs",
                 "args": [None],
