@@ -238,7 +238,10 @@ def _cron_field_matches(value: int, field: str, minimum: int, maximum: int) -> b
             start, end = int(start_text), int(end_text)
         else:
             start = end = int(base)
-        if minimum <= start <= end <= maximum and (value - start) % step == 0:
+        if (
+            minimum <= start <= value <= end <= maximum
+            and (value - start) % step == 0
+        ):
             return True
     return False
 
