@@ -65,6 +65,8 @@ class WidgetManager:
             bedrock = BedrockStatus()
             errors.append(f'Bedrock: {exc}')
         console = await self.console.snapshot() if self.console else ConsoleSnapshot()
+        if self.console and console.online_players is not None:
+            self.playtime.sync_online(console.players)
         if self.settings.console_enabled and not console.connected:
             errors.append(f'Wings console: {console.last_error}' if console.last_error else 'Wings console: connecting...')
         data = WidgetData(server=server, resources=resources, bedrock=bedrock,
