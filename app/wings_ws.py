@@ -377,17 +377,19 @@ class WingsConsole:
                 for pattern in JOIN_PATTERNS:
                     match = pattern.search(line)
                     if match:
-                        self._players.add(match.group(1))
+                        player = match.group(1).strip().rstrip(",").strip()
+                        self._players.add(player)
                         if self.playtime:
-                            self.playtime.mark_online(match.group(1))
+                            self.playtime.mark_online(player)
                         break
 
                 for pattern in LEAVE_PATTERNS:
                     match = pattern.search(line)
                     if match:
-                        self._players.discard(match.group(1))
+                        player = match.group(1).strip().rstrip(",").strip()
+                        self._players.discard(player)
                         if self.playtime:
-                            self.playtime.mark_offline(match.group(1))
+                            self.playtime.mark_offline(player)
                         break
 
 

@@ -19,7 +19,7 @@ class PlaytimeStore:
 
     @staticmethod
     def _key(player: str) -> str:
-        return player.strip().casefold()
+        return player.strip().rstrip(",").strip().casefold()
 
     @staticmethod
     def _now() -> datetime:
@@ -38,11 +38,52 @@ class PlaytimeStore:
             # Migrate the original flat player dictionary format.
             self._items = raw if isinstance(raw, dict) else {}
             started = None
+        normalised_changed = self._normalise_items()
         if started:
             try:
                 self.period_started_at = datetime.fromisoformat(started)
             except ValueError:
                 pass
+        if normalised_changed:
+            self._save()
+
+    def _normalise_items(self) -> bool:
+        """Remove punctuation artifacts and merge duplicate player records."""
+        normalised: dict[str, dict] = {}
+        changed = False
+        for key, raw_item in self._items.items():
+            if not isinstance(raw_item, dict):
+                changed = True
+                continue
+            player = str(raw_item.get("player", key)).strip().rstrip(",").strip()
+            normalised_key = self._key(player)
+            item = dict(raw_item)
+            item["player"] = player
+            if normalised_key != key or item["player"] != raw_item.get("player"):
+                changed = True
+            if normalised_key not in normalised:
+                normalised[normalised_key] = item
+                continue
+
+            changed = True
+            existing = normalised[normalised_key]
+            existing["total_seconds"] = int(existing.get("total_seconds", 0)) + int(
+                item.get("total_seconds", 0)
+            )
+            if existing.get("active_since") is None:
+                existing["active_since"] = item.get("active_since")
+            if item.get("last_joined_at") and (
+                not existing.get("last_joined_at")
+                or item["last_joined_at"] > existing["last_joined_at"]
+            ):
+                existing["last_joined_at"] = item["last_joined_at"]
+            if item.get("last_left_at") and (
+                not existing.get("last_left_at")
+                or item["last_left_at"] > existing["last_left_at"]
+            ):
+                existing["last_left_at"] = item["last_left_at"]
+        self._items = normalised
+        return changed
 
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -63,6 +104,7 @@ class PlaytimeStore:
 
     def _ensure(self, player: str) -> dict:
         key = self._key(player)
+        player = player.strip().rstrip(",").strip()
         item = self._items.setdefault(key, {
             "player": player.strip(),
             "total_seconds": 0,
