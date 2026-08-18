@@ -23,6 +23,7 @@ class WidgetBot(discord.Client):
         intents = discord.Intents.none()
         intents.guilds = True
         intents.guild_messages = True
+        intents.message_content = True
         intents.members = True
         super().__init__(intents=intents)
         self.settings = settings
@@ -203,6 +204,32 @@ class WidgetBot(discord.Client):
         log.info('Discord login: %s', self.user)
         if self.loop_task is None:
             self.loop_task = asyncio.create_task(self.update_loop())
+
+    async def on_message(self, message: discord.Message) -> None:
+        """Forward messages from the configured Discord channel to Bedrock."""
+        if message.author.bot:
+            return
+        if message.guild is None:
+            return
+        if message.guild.id != self.settings.discord_guild_id:
+            return
+        if message.channel.id != self.settings.discord_to_minecraft_channel_id:
+            return
+        if self.console is None:
+            log.warning('Cannot forward Discord message: console is disabled')
+            return
+
+        content = ' '.join(message.content.split())
+        if not content:
+            return
+        content = discord.utils.escape_mentions(content)
+        author = discord.utils.escape_mentions(message.author.display_name)
+        channel_name = discord.utils.escape_mentions(message.channel.name)
+        text = f'(#{channel_name}) <{author}> {content}'[:240]
+        try:
+            await self.console.send_command(f'say {text}')
+        except Exception:
+            log.exception('Failed to forward Discord message to Bedrock')
 
     async def update_loop(self) -> None:
         assert self.widget is not None

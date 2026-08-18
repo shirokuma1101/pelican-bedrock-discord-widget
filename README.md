@@ -14,6 +14,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Server console logs (latest five lines, excluding `list` output)
 - Ko-fi support link
 - Administrator-managed donor message board
+- Discord messages forwarded to Minecraft with the Bedrock `say` command
 - Optional Start / Restart / Stop buttons
 - One Discord message that is edited every N seconds
 - Docker Compose deployment
@@ -50,6 +51,8 @@ Edit `.env`:
 DISCORD_TOKEN=your_bot_token
 DISCORD_GUILD_ID=123456789012345678
 DISCORD_CHANNEL_ID=123456789012345678
+# Optional; defaults to DISCORD_CHANNEL_ID
+DISCORD_TO_MINECRAFT_CHANNEL_ID=123456789012345678
 
 PELICAN_BASE_URL=https://panel.example.com
 PELICAN_SERVER_ID=short-server-identifier
@@ -72,6 +75,21 @@ MAX_PLAYERS_DISPLAYED=20
 ```
 
 The bot creates the widget message automatically if `DISCORD_MESSAGE_ID` is empty.
+
+## Discord to Minecraft chat
+
+Messages posted in `DISCORD_TO_MINECRAFT_CHANNEL_ID` are forwarded to the
+Bedrock server as:
+
+```text
+(#チャンネル名) <表示名> メッセージ
+```
+
+The setting defaults to `DISCORD_CHANNEL_ID`. Direct messages, bot messages,
+empty messages, and messages from another guild are ignored. This uses the
+existing Wings WebSocket connection, so `CONSOLE_ENABLED=true` is required.
+Enable the **Message Content Intent** for the bot in the Discord Developer
+Portal, because Discord otherwise does not provide message text to the bot.
 
 ## Pelican token
 

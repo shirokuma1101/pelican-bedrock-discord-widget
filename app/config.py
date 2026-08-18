@@ -36,6 +36,7 @@ class Settings:
     discord_token: str
     discord_guild_id: int
     discord_channel_id: int
+    discord_to_minecraft_channel_id: int
     discord_message_id: int | None
     pelican_base_url: str
     pelican_server_id: str
@@ -65,6 +66,10 @@ class Settings:
             discord_token=required('DISCORD_TOKEN'),
             discord_guild_id=int(required('DISCORD_GUILD_ID')),
             discord_channel_id=int(required('DISCORD_CHANNEL_ID')),
+            discord_to_minecraft_channel_id=int(
+                os.getenv('DISCORD_TO_MINECRAFT_CHANNEL_ID', '').strip()
+                or os.getenv('DISCORD_CHANNEL_ID', '')
+            ),
             discord_message_id=int(message) if message else None,
             pelican_base_url=required('PELICAN_BASE_URL').rstrip('/'),
             pelican_server_id=required('PELICAN_SERVER_ID'),

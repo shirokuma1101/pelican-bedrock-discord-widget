@@ -261,6 +261,13 @@ class WingsConsole:
             "args": [command],
         }))
 
+    async def send_command(self, command: str) -> None:
+        """Send a command to the Bedrock server when Wings is connected."""
+        async with self._lock:
+            if self._ws is None or not self._connected:
+                raise RuntimeError('Wings WebSocket is not connected')
+            await self._send_command(command)
+
     async def _handle_message(self, raw: str | bytes) -> None:
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8", errors="replace")
