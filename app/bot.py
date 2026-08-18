@@ -89,10 +89,9 @@ class WidgetBot(discord.Client):
             ),
         )
         for command in commands:
-            # Keep both scopes in sync. This also handles commands that were
-            # previously registered globally and are still shown by Discord.
+            # Register commands only in the configured guild. Registering the
+            # same command globally as well makes Discord show two entries.
             self.tree.add_command(command, guild=guild_obj, override=True)
-            self.tree.add_command(command, override=True)
 
         playtime_commands = (
             app_commands.Command(
@@ -110,9 +109,10 @@ class WidgetBot(discord.Client):
         )
         for command in playtime_commands:
             self.tree.add_command(command, guild=guild_obj, override=True)
-            self.tree.add_command(command, override=True)
 
         guild_commands = await self.tree.sync(guild=guild_obj)
+        # Remove global commands left behind by older versions that synced
+        # this bot's commands in both scopes.
         global_commands = await self.tree.sync()
         log.info(
             "Synced commands: guild=%s global=%s",
