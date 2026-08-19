@@ -233,6 +233,7 @@ class WidgetBot(discord.Client):
         # interpreted if a message is later extended or reused in a command.
         content = MINECRAFT_SELECTOR_RE.sub(r'＠\1', content)
         author = discord.utils.escape_mentions(message.author.display_name)
+        author = MINECRAFT_SELECTOR_RE.sub(r'＠\1', author)
         channel_name = discord.utils.escape_mentions(message.channel.name)
         text = f'(#{channel_name}) <{author}> {content}'[:240]
         try:
