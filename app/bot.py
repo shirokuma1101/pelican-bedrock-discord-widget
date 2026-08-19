@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 
 import aiohttp
 import discord
@@ -16,6 +17,11 @@ from .widget import WidgetManager
 from .wings_ws import WingsConsole
 
 log = logging.getLogger(__name__)
+
+MINECRAFT_SELECTOR_RE = re.compile(
+    r'(?<![A-Za-z0-9_])@([aeprs])(?![A-Za-z0-9_])',
+    re.IGNORECASE,
+)
 
 
 class WidgetBot(discord.Client):
@@ -223,6 +229,9 @@ class WidgetBot(discord.Client):
         if not content:
             return
         content = discord.utils.escape_mentions(content)
+        # Prevent Bedrock target selectors such as @a and @r from being
+        # interpreted if a message is later extended or reused in a command.
+        content = MINECRAFT_SELECTOR_RE.sub(r'＠\1', content)
         author = discord.utils.escape_mentions(message.author.display_name)
         channel_name = discord.utils.escape_mentions(message.channel.name)
         text = f'(#{channel_name}) <{author}> {content}'[:240]
