@@ -8,6 +8,15 @@ from .models import WidgetData
 from .playtime import format_duration
 
 
+def goal_progress_bar(value: str, width: int = 10) -> str:
+    try:
+        percentage = min(100.0, max(0.0, float(value)))
+    except (TypeError, ValueError):
+        return f"[{'░' * width}] {value}%"
+    filled = round(percentage / 100 * width)
+    return f"[{'█' * filled}{'░' * (width - filled)}] {percentage:.2f}%"
+
+
 def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     if data.bedrock.online:
         state, colour = "🟢 ONLINE", discord.Colour.green()
@@ -138,7 +147,14 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         support_text = f"[Ko-fiで支援する]({settings.ko_fi_url})"
     else:
         support_text = "未設定"
-    embed.add_field(name="☕ サポート", value=support_text, inline=False)
+    embed.add_field(name="☕ サポート", value=support_text, inline=True)
+    if data.kofi_goal:
+        goal_text = (
+            f"**{data.kofi_goal.title}**"
+            f"\n`{goal_progress_bar(data.kofi_goal.percentage)}`"
+            f"\n`{data.kofi_goal.current_text} / {data.kofi_goal.target_text}`"
+        )
+        embed.add_field(name="🎯 予算", value=goal_text, inline=True)
 
     donation_lines = [
         f"**#{item.id} {item.donor}**\n{item.message}"

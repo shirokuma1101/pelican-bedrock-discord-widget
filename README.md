@@ -65,6 +65,10 @@ UPDATE_INTERVAL_SECONDS=15
 PUBLIC_ADDRESS=example.com:19132
 
 KO_FI_URL=https://ko-fi.com/yourname
+KO_FI_GOAL_TITLE=サポート目標
+KO_FI_GOAL_PERCENTAGE=0
+KO_FI_GOAL_CURRENT=¥0
+KO_FI_GOAL_TARGET=¥0
 DONATIONS_FILE=data/donations.json
 
 CONSOLE_ENABLED=true
@@ -75,6 +79,16 @@ MAX_PLAYERS_DISPLAYED=20
 ```
 
 The bot creates the widget message automatically if `DISCORD_MESSAGE_ID` is empty.
+
+The Ko-fi Goal shown in the support field is read directly from the following
+environment variables. The bot does not access or scrape Ko-fi.
+
+```dotenv
+KO_FI_GOAL_TITLE=サポート目標
+KO_FI_GOAL_PERCENTAGE=0
+KO_FI_GOAL_CURRENT=¥0
+KO_FI_GOAL_TARGET=¥0
+```
 
 ## Discord to Minecraft chat
 

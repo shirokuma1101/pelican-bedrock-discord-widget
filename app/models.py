@@ -51,6 +51,14 @@ class DonationMessage:
 
 
 @dataclass
+class KoFiGoal:
+    title: str
+    percentage: str
+    current_text: str
+    target_text: str
+
+
+@dataclass
 class WidgetData:
     server: PelicanServer
     resources: Resources
@@ -59,5 +67,6 @@ class WidgetData:
     last_updated: datetime
     errors: list[str]
     donations: list[DonationMessage] = field(default_factory=list)
+    kofi_goal: KoFiGoal | None = None
     playtime_ranking: list[tuple[str, int]] = field(default_factory=list)
     playtime_started_at: datetime | None = None

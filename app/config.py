@@ -51,6 +51,10 @@ class Settings:
     player_list_command_interval_seconds: int
     max_players_displayed: int
     ko_fi_url: str
+    ko_fi_goal_title: str
+    ko_fi_goal_percentage: str
+    ko_fi_goal_current: str
+    ko_fi_goal_target: str
     donations_file: str
     playtime_file: str
     playtime_reset_cron: str
@@ -84,6 +88,10 @@ class Settings:
             player_list_command_interval_seconds=max(10, integer('PLAYER_LIST_COMMAND_INTERVAL_SECONDS', 30)),
             max_players_displayed=max(1, integer('MAX_PLAYERS_DISPLAYED', 20)),
             ko_fi_url=os.getenv('KO_FI_URL', '').strip(),
+            ko_fi_goal_title=os.getenv('KO_FI_GOAL_TITLE', '').strip(),
+            ko_fi_goal_percentage=os.getenv('KO_FI_GOAL_PERCENTAGE', '').strip(),
+            ko_fi_goal_current=os.getenv('KO_FI_GOAL_CURRENT', '').strip(),
+            ko_fi_goal_target=os.getenv('KO_FI_GOAL_TARGET', '').strip(),
             donations_file=os.getenv('DONATIONS_FILE', 'data/donations.json').strip(),
             playtime_file=os.getenv('PLAYTIME_FILE', 'data/playtime.json').strip(),
             playtime_reset_cron=os.getenv('PLAYTIME_RESET_CRON', '').strip(),

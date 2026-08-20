@@ -8,15 +8,15 @@ def test_progress_bar():
 
 def test_memory_text():
     assert memory_text(1024 * 1024 * 1024, 4096) == (
-        "[██░░░░░░░░]\n1,024 MB / 4,096 MB\n25.00%"
+        "[██░░░░░░░░] 25.00%\n1,024 MB / 4,096 MB"
     )
 
 
 def test_disk_text():
-    assert disk_text(2 * 1024 * 1024, None) == "[░░░░░░░░░░]\n2 MB / N/A\nN/A"
-    assert disk_text(2 * 1024 * 1024, 4) == "[█████░░░░░]\n2 MB / 4 MB\n50.00%"
+    assert disk_text(2 * 1024 * 1024, None) == "[░░░░░░░░░░] N/A\n2 MB / N/A"
+    assert disk_text(2 * 1024 * 1024, 4) == "[█████░░░░░] 50.00%\n2 MB / 4 MB"
 
 
 def test_cpu_text():
-    assert cpu_text(35.0, 100.0) == "[████░░░░░░]\n35.0% / 100.0%\n35.00%"
-    assert cpu_text(35.0, None) == "[████░░░░░░]\n35.0% / N/A\n35.00%"
+    assert cpu_text(35.0, 100.0) == "[████░░░░░░] 35.00%\n35.0% / 100.0%"
+    assert cpu_text(35.0, None) == "[████░░░░░░] 35.00%\n35.0% / N/A"

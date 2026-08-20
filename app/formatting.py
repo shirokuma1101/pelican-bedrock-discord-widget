@@ -20,10 +20,10 @@ def memory_text(used: int | None, limit_mb: int | None) -> str:
         return "N/A"
 
     if limit_mb is None or limit_mb <= 0:
-        return f"{progress_bar(0)}\n{used_mb:,.0f} MB / N/A\nN/A"
+        return f"{progress_bar(0)} N/A\n{used_mb:,.0f} MB / N/A"
 
     percent = used_mb / limit_mb * 100
-    return f"{progress_bar(percent)}\n{used_mb:,.0f} MB / {limit_mb:,.0f} MB\n{percent:.2f}%"
+    return f"{progress_bar(percent)} {percent:.2f}%\n{used_mb:,.0f} MB / {limit_mb:,.0f} MB"
 
 
 def cpu_text(used: float | None, limit: float | None) -> str:
@@ -31,10 +31,10 @@ def cpu_text(used: float | None, limit: float | None) -> str:
         return "N/A"
 
     if limit is None or limit <= 0:
-        return f"{progress_bar(used)}\n{used:.1f}% / N/A\n{used:.2f}%"
+        return f"{progress_bar(used)} {used:.2f}%\n{used:.1f}% / N/A"
 
     percent = used / limit * 100
-    return f"{progress_bar(percent)}\n{used:.1f}% / {limit:.1f}%\n{percent:.2f}%"
+    return f"{progress_bar(percent)} {percent:.2f}%\n{used:.1f}% / {limit:.1f}%"
 
 
 def disk_text(used: int | None, limit_mb: int | None) -> str:
@@ -43,10 +43,10 @@ def disk_text(used: int | None, limit_mb: int | None) -> str:
         return "N/A"
 
     if limit_mb is None or limit_mb <= 0:
-        return f"{progress_bar(0)}\n{used_mb:,.0f} MB / N/A\nN/A"
+        return f"{progress_bar(0)} N/A\n{used_mb:,.0f} MB / N/A"
 
     percent = used_mb / limit_mb * 100
-    return f"{progress_bar(percent)}\n{used_mb:,.0f} MB / {limit_mb:,.0f} MB\n{percent:.2f}%"
+    return f"{progress_bar(percent)} {percent:.2f}%\n{used_mb:,.0f} MB / {limit_mb:,.0f} MB"
 
 
 def update_text(timestamp: datetime) -> str:

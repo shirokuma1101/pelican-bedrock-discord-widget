@@ -10,7 +10,7 @@ from .config import Settings
 from .donations import DonationStore
 from .playtime import PlaytimeStore
 from .embed import make_embed
-from .models import BedrockStatus, ConsoleSnapshot, PelicanServer, Resources, WidgetData
+from .models import BedrockStatus, ConsoleSnapshot, KoFiGoal, PelicanServer, Resources, WidgetData
 from .pelican import PelicanClient
 from .views import ControlView
 from .wings_ws import WingsConsole
@@ -65,6 +65,19 @@ class WidgetManager:
             bedrock = BedrockStatus()
             errors.append(f'Bedrock: {exc}')
         console = await self.console.snapshot() if self.console else ConsoleSnapshot()
+        kofi_goal = None
+        if (
+            self.settings.ko_fi_goal_title
+            and self.settings.ko_fi_goal_percentage
+            and self.settings.ko_fi_goal_current
+            and self.settings.ko_fi_goal_target
+        ):
+            kofi_goal = KoFiGoal(
+                title=self.settings.ko_fi_goal_title,
+                percentage=self.settings.ko_fi_goal_percentage,
+                current_text=self.settings.ko_fi_goal_current,
+                target_text=self.settings.ko_fi_goal_target,
+            )
         if self.console and console.online_players is not None:
             # Do not treat the short-lived empty snapshot between the count
             # line and the player-name lines as a mass disconnect.
@@ -80,6 +93,7 @@ class WidgetManager:
                           console=console, last_updated=datetime.now(timezone.utc),
                           errors=errors,
                           donations=self.donations.all(),
+                          kofi_goal=kofi_goal,
                           playtime_ranking=self.playtime.ranking(),
                           playtime_started_at=self.playtime.period_started_at)
         view = ControlView(self.pelican, self.settings) if self.settings.enable_control_buttons else None
