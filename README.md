@@ -99,6 +99,10 @@ Bedrock server as:
 (#チャンネル名) <表示名> メッセージ
 ```
 
+Discord custom emojis whose names start with `mc_` are converted to Bedrock
+emoji shortcodes. For example, `mc_shank` becomes `:shank:`. Both static and
+animated Discord emoji formats are supported.
+
 The setting defaults to `DISCORD_CHANNEL_ID`. Direct messages, bot messages,
 empty messages, and messages from another guild are ignored. This uses the
 existing Wings WebSocket connection, so `CONSOLE_ENABLED=true` is required.

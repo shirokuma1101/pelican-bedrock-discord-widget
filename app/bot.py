@@ -22,6 +22,17 @@ MINECRAFT_SELECTOR_RE = re.compile(
     r'(?<![A-Za-z0-9_])@([aeprs])(?![A-Za-z0-9_])',
     re.IGNORECASE,
 )
+DISCORD_MINECRAFT_EMOJI_RE = re.compile(
+    r'<a?:mc_([A-Za-z0-9_]+):\d+>',
+    re.IGNORECASE,
+)
+
+
+def replace_minecraft_emojis(content: str) -> str:
+    return DISCORD_MINECRAFT_EMOJI_RE.sub(
+        lambda match: f":{match.group(1).lower()}:",
+        content,
+    )
 
 
 class WidgetBot(discord.Client):
@@ -229,6 +240,7 @@ class WidgetBot(discord.Client):
         if not content:
             return
         content = discord.utils.escape_mentions(content)
+        content = replace_minecraft_emojis(content)
         # Prevent Bedrock target selectors such as @a and @r from being
         # interpreted if a message is later extended or reused in a command.
         content = MINECRAFT_SELECTOR_RE.sub(r'＠\1', content)
