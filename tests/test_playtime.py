@@ -1,6 +1,13 @@
 from datetime import datetime, timezone
 
-from app.playtime import _cron_matches
+from app.playtime import _cron_matches, format_duration
+
+
+def test_format_duration_uses_total_hours_and_two_digit_minutes():
+    assert format_duration(0) == "0時間00分"
+    assert format_duration(8 * 60) == "0時間08分"
+    assert format_duration(1 * 3600 + 5 * 60) == "1時間05分"
+    assert format_duration(49 * 3600 + 7 * 60) == "49時間07分"
 
 
 def test_monthly_cron_matches_only_first_day_at_midnight():

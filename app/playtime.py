@@ -212,14 +212,9 @@ class PlaytimeStore:
 
 def format_duration(seconds: int) -> str:
     seconds = max(0, int(seconds))
-    days, remainder = divmod(seconds, 86400)
-    hours, remainder = divmod(remainder, 3600)
+    hours, remainder = divmod(seconds, 3600)
     minutes, _ = divmod(remainder, 60)
-    if days:
-        return f"{days}日{hours}時間{minutes}分"
-    if hours:
-        return f"{hours}時間{minutes}分"
-    return f"{minutes}分"
+    return f"{hours}時間{minutes:02d}分"
 
 
 def _cron_field_matches(value: int, field: str, minimum: int, maximum: int) -> bool:
