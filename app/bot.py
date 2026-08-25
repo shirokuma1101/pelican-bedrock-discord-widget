@@ -11,6 +11,7 @@ from discord import app_commands
 from .bedrock import BedrockClient
 from .config import Settings
 from .donations import DonationStore
+from .models import WidgetData
 from .pelican import PelicanClient
 from .playtime import PlaytimeStore, format_duration
 from .widget import WidgetManager
@@ -35,6 +36,21 @@ def replace_minecraft_emojis(content: str) -> str:
     )
 
 
+def presence_text(data: WidgetData) -> str:
+    if data.resources.current_state.lower() in {'offline', 'stopping'}:
+        return 'Minecraft｜サーバーOFFLINE'
+
+    online = data.console.online_players
+    maximum = data.console.max_players
+    if online is None or maximum is None:
+        online = data.bedrock.online_players
+        maximum = data.bedrock.max_players
+
+    if online is not None and maximum is not None:
+        return f'Minecraft｜{online}/{maximum}人が参加中'
+    return 'Minecraft｜人数を取得中'
+
+
 class WidgetBot(discord.Client):
     def __init__(self, settings: Settings) -> None:
         intents = discord.Intents.none()
@@ -52,6 +68,7 @@ class WidgetBot(discord.Client):
         self.playtime: PlaytimeStore | None = None
         self.tree = app_commands.CommandTree(self)
         self.loop_task: asyncio.Task | None = None
+        self._presence_text: str | None = None
 
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
@@ -219,6 +236,8 @@ class WidgetBot(discord.Client):
 
     async def on_ready(self) -> None:
         log.info('Discord login: %s', self.user)
+        # Force a refresh after reconnecting to the Discord Gateway.
+        self._presence_text = None
         if self.loop_task is None:
             self.loop_task = asyncio.create_task(self.update_loop())
 
@@ -258,10 +277,21 @@ class WidgetBot(discord.Client):
         await self.widget.initialize()
         while not self.is_closed():
             try:
-                await self.widget.update()
+                data = await self.widget.update()
+                await self._update_presence(data)
             except Exception:
                 log.exception('Widget update failed')
             await asyncio.sleep(self.settings.update_interval_seconds)
+
+    async def _update_presence(self, data: WidgetData) -> None:
+        if not self.settings.presence_enabled:
+            return
+        text = presence_text(data)
+        if text == self._presence_text:
+            return
+        await self.change_presence(activity=discord.Game(name=text))
+        self._presence_text = text
+        log.info('Discord presence updated: %s', text)
 
     async def close(self) -> None:
         if self.loop_task:

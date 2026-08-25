@@ -15,6 +15,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Ko-fi support link
 - Administrator-managed donor message board
 - Discord messages forwarded to Minecraft with the Bedrock `say` command
+- Bot presence showing the current Minecraft player count
 - Optional Start / Restart / Stop buttons
 - One Discord message that is edited every N seconds
 - Docker Compose deployment
@@ -62,6 +63,7 @@ BEDROCK_HOST=192.168.1.50
 BEDROCK_PORT=19132
 
 UPDATE_INTERVAL_SECONDS=15
+PRESENCE_ENABLED=true
 PUBLIC_ADDRESS=example.com:19132
 
 KO_FI_URL=https://ko-fi.com/yourname
@@ -79,6 +81,10 @@ MAX_PLAYERS_DISPLAYED=20
 ```
 
 The bot creates the widget message automatically if `DISCORD_MESSAGE_ID` is empty.
+
+When `PRESENCE_ENABLED=true`, the bot activity shows the current player count,
+for example `Minecraft｜2/20人が参加中`. The presence is updated only when the
+displayed value changes.
 
 The Ko-fi Goal shown in the support field is read directly from the following
 environment variables. The bot does not access or scrape Ko-fi.

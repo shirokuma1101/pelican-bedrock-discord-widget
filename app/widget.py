@@ -43,7 +43,7 @@ class WidgetManager:
         self.message = await self.channel.send('Initializing server widget...')
         log.info('Created widget message ID: %s', self.message.id)
 
-    async def update(self) -> None:
+    async def update(self) -> WidgetData:
         if self.message is None:
             await self.initialize()
         self.playtime.maybe_reset(self.settings.playtime_reset_cron)
@@ -98,3 +98,4 @@ class WidgetManager:
                           playtime_started_at=self.playtime.period_started_at)
         view = ControlView(self.pelican, self.settings) if self.settings.enable_control_buttons else None
         await self.message.edit(content=None, embed=make_embed(data, self.settings), view=view)
+        return data
