@@ -132,6 +132,10 @@ class WidgetBot(discord.Client):
         guild_obj = discord.Object(id=self.settings.discord_guild_id)
         commands = (
             app_commands.Command(
+                name="help", description="このBotの機能とコマンド一覧を表示します",
+                callback=self._help_command,
+            ),
+            app_commands.Command(
                 name="donation_add", description="寄付者からのひとことを掲示板に追加します",
                 callback=self._donation_add_command,
             ),
@@ -213,6 +217,64 @@ class WidgetBot(discord.Client):
             interaction.user.guild_permissions.administrator
             or any(role.id in self.settings.control_role_ids for role in interaction.user.roles)
         )
+
+    async def _help_command(self, interaction: discord.Interaction) -> None:
+        embed = discord.Embed(
+            title='🖥️ Pelican Bedrock Widget Bot ヘルプ',
+            description=(
+                'Minecraft Bedrockサーバーの状態を固定Embedへ表示し、'
+                'Discordとサーバーの連携を行うBotです。'
+            ),
+            colour=discord.Colour.blurple(),
+        )
+        embed.add_field(
+            name='📊 主な機能',
+            value=(
+                '• サーバー状態・接続人数・リソース使用量の表示\n'
+                '• プレイ時間ランキングの記録\n'
+                '• DiscordメッセージのMinecraftへの転送\n'
+                '• 寄付者メッセージの掲示'
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name='👤 一般コマンド',
+            value=(
+                '`/help` — このヘルプを表示\n'
+                '`/playtime player:<名前>` — 累計プレイ時間を表示\n'
+                '`/playtime_ranking` — プレイ時間ランキングを表示'
+            ),
+            inline=False,
+        )
+        if self.dynamic_voice is not None:
+            embed.add_field(
+                name='🔊 一時VC',
+                value=(
+                    '`/vc_create` — VCと聞き専テキストを作成\n'
+                    '`/vc_create limit:5 name:雑談` — 人数・名前を指定して作成\n'
+                    '固定サーバーEmbedのリアクションからも作成できます。\n'
+                    '既にVCへ参加中の場合は新規作成されません。'
+                ),
+                inline=False,
+            )
+        admin_commands = (
+            '`/donation_add` `/donation_remove` `/donation_list` `/donation_clear`\n'
+            '`/playtime_reset`'
+        )
+        if self.dynamic_voice is not None:
+            admin_commands += (
+                '\n`/vc_reaction_add` `/vc_reaction_remove` `/vc_reaction_list`'
+            )
+        embed.add_field(
+            name='🛠️ 管理者コマンド',
+            value=(
+                f'{admin_commands}\n'
+                'Discord管理者または設定済みの管理ロールのみ利用できます。'
+            ),
+            inline=False,
+        )
+        embed.set_footer(text='コマンド入力時に表示される各オプションも参照してください。')
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     async def _deny_donation_command(self, interaction: discord.Interaction) -> bool:
         if self._can_manage_donations(interaction):

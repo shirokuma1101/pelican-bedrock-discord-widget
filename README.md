@@ -90,6 +90,9 @@ DYNAMIC_VOICE_REACTIONS_FILE=data/dynamic_voice_reactions.json
 
 The bot creates the widget message automatically if `DISCORD_MESSAGE_ID` is empty.
 
+Use `/help` in Discord to display an ephemeral overview of the bot's features,
+general commands, dynamic voice controls, and administrator commands.
+
 When `PRESENCE_ENABLED=true`, the bot activity shows the current player count,
 for example `Minecraft｜2/20人が参加中`. The presence is updated only when the
 displayed value changes.
