@@ -17,6 +17,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Discord messages forwarded to Minecraft with the Bedrock `say` command
 - Bot presence showing the current Minecraft player count
 - Optional Start / Restart / Stop buttons
+- Slash command or widget reaction-created temporary VC + listener text-channel pairs
 - One Discord message that is edited every N seconds
 - Docker Compose deployment
 - systemd deployment
@@ -78,6 +79,13 @@ CONSOLE_LOG_LINES=5
 PLAYER_LIST_ENABLED=true
 PLAYER_LIST_COMMAND_INTERVAL_SECONDS=30
 MAX_PLAYERS_DISPLAYED=20
+
+# Optional dynamic voice channels
+DYNAMIC_VOICE_CATEGORY_ID=123456789012345678
+DYNAMIC_VOICE_EMPTY_MINUTES=10
+DYNAMIC_VOICE_DEFAULT_LIMIT=0
+DYNAMIC_VOICE_FILE=data/dynamic_voice.json
+DYNAMIC_VOICE_REACTIONS_FILE=data/dynamic_voice_reactions.json
 ```
 
 The bot creates the widget message automatically if `DISCORD_MESSAGE_ID` is empty.
@@ -129,6 +137,52 @@ The bot needs at least:
 - Send Messages
 - Embed Links
 - Read Message History
+
+The optional dynamic voice feature also needs **Manage Channels**, **Connect**,
+and **Manage Messages**. Manage Messages lets the bot remove a user's `🔊`
+reaction so the same person can use it again.
+
+## Dynamic voice channels
+
+Set `DYNAMIC_VOICE_CATEGORY_ID` to enable this feature. Leaving it empty keeps
+it disabled. The bot adds a `🔊` reaction to the fixed widget Embed and also
+registers the following guild command:
+
+```text
+/vc_create
+/vc_create limit:5
+/vc_create limit:5 name:雑談
+```
+
+`limit` accepts 0–99; 0 means unlimited. When omitted, it uses
+`DYNAMIC_VOICE_DEFAULT_LIMIT`. The command and reaction create a normal voice
+channel plus a matching writable `｜聞き専` text channel. A user who is already
+connected to any voice channel cannot create another set.
+
+When the voice channel remains empty for `DYNAMIC_VOICE_EMPTY_MINUTES` (10 by
+default), both the voice and text channels are deleted. Managed channel IDs are saved in
+`DYNAMIC_VOICE_FILE`, so cleanup continues after a bot restart. The bot cannot
+move a disconnected user into a voice channel; the creator joins the new
+channel manually.
+
+The listener text channel contains an expiration status message. Discord's
+relative timestamp automatically displays the remaining time without repeated
+API updates. It changes to a timer-stopped message while the VC is occupied and
+starts a new countdown when the VC becomes empty again.
+
+Administrators and members with a role in `CONTROL_ROLE_IDS` can associate
+additional Unicode or custom emoji reactions with fixed channel names:
+
+```text
+/vc_reaction_add emoji:🎮 channel_name:ゲーム部屋
+/vc_reaction_add emoji:<:minecraft:123456789012345678> channel_name:Minecraft
+/vc_reaction_remove emoji:🎮
+/vc_reaction_list
+```
+
+The bot adds registered emoji to the fixed widget message. Reacting creates a
+VC using the associated name and its matching listener text channel. These
+mappings are persisted in `DYNAMIC_VOICE_REACTIONS_FILE`.
 
 ## Run
 

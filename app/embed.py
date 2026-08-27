@@ -165,6 +165,13 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         donation_text = "…" + donation_text[-1023:]
     embed.add_field(name="📌 寄付者からのひとこと", value=donation_text, inline=False)
 
+    if settings.dynamic_voice_category_id is not None:
+        embed.add_field(
+            name="🔊 一時VC",
+            value="このメッセージの 🔊 を押すと、VCと聞き専テキストを作成します。",
+            inline=False,
+        )
+
     embed.set_footer(
         text=f"{settings.update_interval_seconds}秒更新 / 更新: {update_text(data.last_updated)}"
     )

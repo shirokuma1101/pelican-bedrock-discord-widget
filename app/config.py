@@ -61,12 +61,18 @@ class Settings:
     playtime_reset_cron: str
     enable_control_buttons: bool
     control_role_ids: FrozenSet[int]
+    dynamic_voice_category_id: int | None
+    dynamic_voice_empty_minutes: int
+    dynamic_voice_default_limit: int
+    dynamic_voice_file: str
+    dynamic_voice_reactions_file: str
     log_level: str
 
     @classmethod
     def from_env(cls) -> 'Settings':
         load_dotenv()
         message = os.getenv('DISCORD_MESSAGE_ID', '').strip()
+        voice_category = os.getenv('DYNAMIC_VOICE_CATEGORY_ID', '').strip()
         return cls(
             discord_token=required('DISCORD_TOKEN'),
             discord_guild_id=int(required('DISCORD_GUILD_ID')),
@@ -99,5 +105,12 @@ class Settings:
             playtime_reset_cron=os.getenv('PLAYTIME_RESET_CRON', '').strip(),
             enable_control_buttons=boolean('ENABLE_CONTROL_BUTTONS', False),
             control_role_ids=role_ids(),
+            dynamic_voice_category_id=int(voice_category) if voice_category else None,
+            dynamic_voice_empty_minutes=max(1, integer('DYNAMIC_VOICE_EMPTY_MINUTES', 10)),
+            dynamic_voice_default_limit=min(99, max(0, integer('DYNAMIC_VOICE_DEFAULT_LIMIT', 0))),
+            dynamic_voice_file=os.getenv('DYNAMIC_VOICE_FILE', 'data/dynamic_voice.json').strip(),
+            dynamic_voice_reactions_file=os.getenv(
+                'DYNAMIC_VOICE_REACTIONS_FILE', 'data/dynamic_voice_reactions.json'
+            ).strip(),
             log_level=os.getenv('LOG_LEVEL', 'INFO'),
         )

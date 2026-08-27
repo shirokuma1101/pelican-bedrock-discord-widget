@@ -11,6 +11,7 @@ from discord import app_commands
 from .bedrock import BedrockClient
 from .config import Settings
 from .donations import DonationStore
+from .dynamic_voice import DynamicVoiceManager
 from .models import WidgetData
 from .pelican import PelicanClient
 from .playtime import PlaytimeStore, format_duration
@@ -56,6 +57,8 @@ class WidgetBot(discord.Client):
         intents = discord.Intents.none()
         intents.guilds = True
         intents.guild_messages = True
+        intents.guild_reactions = True
+        intents.voice_states = True
         intents.message_content = True
         intents.members = True
         super().__init__(intents=intents)
@@ -68,6 +71,7 @@ class WidgetBot(discord.Client):
         self.playtime: PlaytimeStore | None = None
         self.tree = app_commands.CommandTree(self)
         self.loop_task: asyncio.Task | None = None
+        self.dynamic_voice: DynamicVoiceManager | None = None
         self._presence_text: str | None = None
 
     async def setup_hook(self) -> None:
@@ -103,6 +107,27 @@ class WidgetBot(discord.Client):
             self.settings, channel, self.pelican, bedrock, self.console,
             self.donations, self.playtime,
         )
+        await self.widget.initialize()
+        if self.settings.dynamic_voice_category_id is not None:
+            self.dynamic_voice = DynamicVoiceManager(
+                guild,
+                self.settings.dynamic_voice_category_id,
+                self.settings.dynamic_voice_empty_minutes,
+                self.settings.dynamic_voice_default_limit,
+                self.settings.dynamic_voice_file,
+                self.settings.dynamic_voice_reactions_file,
+            )
+            await self.dynamic_voice.start()
+            assert self.widget.message is not None
+            try:
+                await self.widget.message.add_reaction('🔊')
+                for reaction in self.dynamic_voice.reactions.values():
+                    try:
+                        await self.widget.message.add_reaction(reaction.display)
+                    except discord.HTTPException:
+                        log.warning('Could not restore dynamic voice reaction %s', reaction.display)
+            except discord.HTTPException:
+                log.exception('Failed to add the dynamic voice reaction')
 
         guild_obj = discord.Object(id=self.settings.discord_guild_id)
         commands = (
@@ -144,6 +169,32 @@ class WidgetBot(discord.Client):
         )
         for command in playtime_commands:
             self.tree.add_command(command, guild=guild_obj, override=True)
+
+        if self.dynamic_voice is not None:
+            voice_commands = (
+                app_commands.Command(
+                    name='vc_create',
+                    description='VCと聞き専テキストチャンネルのセットを作成します',
+                    callback=self._voice_create_command,
+                ),
+                app_commands.Command(
+                    name='vc_reaction_add',
+                    description='絵文字と作成するVC名を固定Embedへ登録します',
+                    callback=self._voice_reaction_add_command,
+                ),
+                app_commands.Command(
+                    name='vc_reaction_remove',
+                    description='固定EmbedからVC作成用リアクションを削除します',
+                    callback=self._voice_reaction_remove_command,
+                ),
+                app_commands.Command(
+                    name='vc_reaction_list',
+                    description='登録済みのVC作成用リアクションを表示します',
+                    callback=self._voice_reaction_list_command,
+                ),
+            )
+            for command in voice_commands:
+                self.tree.add_command(command, guild=guild_obj, override=True)
 
         guild_commands = await self.tree.sync(guild=guild_obj)
         # Remove global commands left behind by older versions that synced
@@ -234,8 +285,160 @@ class WidgetBot(discord.Client):
         count = self.donations.clear()
         await interaction.response.send_message(f"{count}件のメッセージを削除しました。", ephemeral=True)
 
+    @app_commands.describe(limit='VCの人数上限（0は無制限）', name='チャンネル名')
+    async def _voice_create_command(
+        self,
+        interaction: discord.Interaction,
+        limit: int | None = None,
+        name: str | None = None,
+    ) -> None:
+        if self.dynamic_voice is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message('動的VC機能は利用できません。', ephemeral=True)
+            return
+        if interaction.user.voice and interaction.user.voice.channel:
+            await interaction.response.send_message(
+                '既に音声チャンネルへ参加しているため、新規作成しませんでした。', ephemeral=True,
+            )
+            return
+        if limit is not None and not 0 <= limit <= 99:
+            await interaction.response.send_message('人数は0～99で指定してください（0は無制限）。', ephemeral=True)
+            return
+        if name is not None and (not name.strip() or len(name.strip()) > 90):
+            await interaction.response.send_message('チャンネル名は1～90文字で指定してください。', ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            voice, listen = await self.dynamic_voice.create(interaction.user, name, limit)
+        except ValueError:
+            await interaction.followup.send('既に音声チャンネルへ参加しているため、新規作成しませんでした。', ephemeral=True)
+        except Exception:
+            log.exception('Dynamic voice creation failed')
+            await interaction.followup.send('チャンネルの作成に失敗しました。Botの権限とカテゴリ設定を確認してください。', ephemeral=True)
+        else:
+            await interaction.followup.send(
+                f'{voice.mention} と {listen.mention} を作成しました。', ephemeral=True,
+            )
+
+    @app_commands.describe(emoji='登録する絵文字', channel_name='作成時に使用するチャンネル名')
+    async def _voice_reaction_add_command(
+        self, interaction: discord.Interaction, emoji: str, channel_name: str,
+    ) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        if self.dynamic_voice is None or self.widget is None or self.widget.message is None:
+            await interaction.response.send_message('動的VC機能は利用できません。', ephemeral=True)
+            return
+        channel_name = ' '.join(channel_name.split()).strip()
+        if not channel_name or len(channel_name) > 90:
+            await interaction.response.send_message('チャンネル名は1～90文字で指定してください。', ephemeral=True)
+            return
+        parsed = discord.PartialEmoji.from_str(emoji.strip())
+        display = str(parsed)
+        await interaction.response.defer(ephemeral=True)
+        try:
+            await self.widget.message.add_reaction(parsed)
+        except discord.HTTPException:
+            await interaction.followup.send(
+                'その絵文字を使用できません。カスタム絵文字がBotから利用可能か確認してください。', ephemeral=True,
+            )
+            return
+        try:
+            self.dynamic_voice.register_reaction(display, channel_name)
+        except OSError:
+            log.exception('Failed to save dynamic voice reaction')
+            try:
+                await self.widget.message.remove_reaction(parsed, self.user)
+            except discord.HTTPException:
+                pass
+            await interaction.followup.send('リアクション設定の保存に失敗しました。', ephemeral=True)
+            return
+        await interaction.followup.send(
+            f'{display} → `{channel_name}` を登録しました。', ephemeral=True,
+        )
+
+    @app_commands.describe(emoji='削除する絵文字')
+    async def _voice_reaction_remove_command(
+        self, interaction: discord.Interaction, emoji: str,
+    ) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        if self.dynamic_voice is None or self.widget is None or self.widget.message is None:
+            await interaction.response.send_message('動的VC機能は利用できません。', ephemeral=True)
+            return
+        parsed = discord.PartialEmoji.from_str(emoji.strip())
+        try:
+            removed = self.dynamic_voice.remove_reaction(str(parsed))
+        except OSError:
+            log.exception('Failed to remove dynamic voice reaction')
+            await interaction.response.send_message('リアクション設定の保存に失敗しました。', ephemeral=True)
+            return
+        if removed is None:
+            await interaction.response.send_message('その絵文字は登録されていません。', ephemeral=True)
+            return
+        try:
+            await self.widget.message.remove_reaction(parsed, self.user)
+        except discord.HTTPException:
+            log.warning('Could not remove registered reaction %s from widget', parsed)
+        await interaction.response.send_message(
+            f'{removed.display} の登録を削除しました。', ephemeral=True,
+        )
+
+    async def _voice_reaction_list_command(self, interaction: discord.Interaction) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        if self.dynamic_voice is None:
+            await interaction.response.send_message('動的VC機能は利用できません。', ephemeral=True)
+            return
+        rows = [
+            f'{item.display} → `{item.channel_name}`'
+            for item in self.dynamic_voice.reactions.values()
+        ]
+        await interaction.response.send_message(
+            ('\n'.join(rows)[:1900] if rows else 'カスタムリアクションは登録されていません。'),
+            ephemeral=True,
+        )
+
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
+        if self.user is None or payload.user_id == self.user.id:
+            return
+        if self.dynamic_voice is None or self.widget is None or self.widget.message is None:
+            return
+        if payload.guild_id != self.settings.discord_guild_id or payload.message_id != self.widget.message.id:
+            return
+        if str(payload.emoji) == '🔊':
+            channel_name = None
+        else:
+            channel_name = self.dynamic_voice.channel_name_for_reaction(payload.emoji)
+            if channel_name is None:
+                return
+        guild = self.get_guild(payload.guild_id)
+        if guild is None:
+            return
+        member = payload.member or guild.get_member(payload.user_id)
+        if member is None or member.bot:
+            return
+        try:
+            message = self.widget.message
+            await message.remove_reaction(payload.emoji, member)
+        except (discord.Forbidden, discord.HTTPException):
+            log.warning('Could not remove dynamic voice reaction from user %s', member.id)
+        if member.voice and member.voice.channel:
+            return
+        try:
+            await self.dynamic_voice.create(member, name=channel_name)
+        except Exception:
+            log.exception('Dynamic voice creation from reaction failed')
+
+    async def on_voice_state_update(self, member, before, after) -> None:
+        if self.dynamic_voice is not None and member.guild.id == self.settings.discord_guild_id:
+            await self.dynamic_voice.check_once()
+
     async def on_ready(self) -> None:
         log.info('Discord login: %s', self.user)
+        if self.dynamic_voice is not None:
+            cached_guild = self.get_guild(self.settings.discord_guild_id)
+            if cached_guild is not None:
+                self.dynamic_voice.guild = cached_guild
         # Force a refresh after reconnecting to the Discord Gateway.
         self._presence_text = None
         if self.loop_task is None:
@@ -298,9 +501,17 @@ class WidgetBot(discord.Client):
             self.loop_task.cancel()
         if self.console:
             await self.console.stop()
+        if self.dynamic_voice:
+            await self.dynamic_voice.stop()
         if self.session:
             await self.session.close()
         await super().close()
 
     async def start_bot(self) -> None:
-        await self.start(self.settings.discord_token)
+        try:
+            await self.start(self.settings.discord_token)
+        finally:
+            # setup_hook creates independent HTTP/WebSocket resources. Ensure
+            # they are closed even when Discord login or Gateway DNS fails.
+            if not self.is_closed():
+                await self.close()
