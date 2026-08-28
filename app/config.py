@@ -26,6 +26,23 @@ def boolean(name: str, default: bool) -> bool:
     return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
+def env_with_legacy(name: str, legacy_name: str, default: str = '') -> str:
+    value = os.getenv(name)
+    if value is None:
+        value = os.getenv(legacy_name, default)
+    return value.strip()
+
+
+def integer_with_legacy(name: str, legacy_name: str, default: int) -> int:
+    raw = env_with_legacy(name, legacy_name)
+    return default if not raw else int(raw)
+
+
+def boolean_with_legacy(name: str, legacy_name: str, default: bool) -> bool:
+    raw = env_with_legacy(name, legacy_name)
+    return default if not raw else raw.lower() in {'1', 'true', 'yes', 'on'}
+
+
 def role_ids() -> FrozenSet[int]:
     raw = os.getenv('CONTROL_ROLE_IDS', '')
     return frozenset(int(x.strip()) for x in raw.split(',') if x.strip())
@@ -45,6 +62,16 @@ class Settings:
     bedrock_port: int
     update_interval_seconds: int
     presence_enabled: bool
+    llm_enabled: bool
+    llm_base_url: str
+    llm_model: str
+    llm_allowed_channel_id: int | None
+    llm_system_prompt: str
+    llm_timeout_seconds: int
+    llm_max_history_messages: int
+    llm_max_concurrent_requests: int
+    llm_max_tokens: int
+    llm_database_file: str
     public_address: str
     console_enabled: bool
     console_log_lines: int
@@ -73,6 +100,7 @@ class Settings:
         load_dotenv()
         message = os.getenv('DISCORD_MESSAGE_ID', '').strip()
         voice_category = os.getenv('DYNAMIC_VOICE_CATEGORY_ID', '').strip()
+        llm_channel = env_with_legacy('LLM_ALLOWED_CHANNEL_ID', 'LLAMA_ALLOWED_CHANNEL_ID')
         return cls(
             discord_token=required('DISCORD_TOKEN'),
             discord_guild_id=int(required('DISCORD_GUILD_ID')),
@@ -89,6 +117,21 @@ class Settings:
             bedrock_port=integer('BEDROCK_PORT', 19132),
             update_interval_seconds=max(5, integer('UPDATE_INTERVAL_SECONDS', 15)),
             presence_enabled=boolean('PRESENCE_ENABLED', True),
+            llm_enabled=boolean_with_legacy('LLM_ENABLED', 'LLAMA_ENABLED', False),
+            llm_base_url=env_with_legacy('LLM_BASE_URL', 'LLAMA_BASE_URL').rstrip('/'),
+            llm_model=env_with_legacy('LLM_MODEL', 'LLAMA_MODEL'),
+            llm_allowed_channel_id=int(llm_channel) if llm_channel else None,
+            llm_system_prompt=env_with_legacy(
+                'LLM_SYSTEM_PROMPT', 'LLAMA_SYSTEM_PROMPT',
+                'あなたはMinecraftサーバーの親しみやすい雑談Botです。簡潔に日本語で返答してください。',
+            ),
+            llm_timeout_seconds=max(10, integer_with_legacy('LLM_TIMEOUT_SECONDS', 'LLAMA_TIMEOUT_SECONDS', 120)),
+            llm_max_history_messages=max(2, integer_with_legacy('LLM_MAX_HISTORY_MESSAGES', 'LLAMA_MAX_HISTORY_MESSAGES', 20)),
+            llm_max_concurrent_requests=max(1, integer_with_legacy('LLM_MAX_CONCURRENT_REQUESTS', 'LLAMA_MAX_CONCURRENT_REQUESTS', 1)),
+            llm_max_tokens=max(32, integer_with_legacy('LLM_MAX_TOKENS', 'LLAMA_MAX_TOKENS', 512)),
+            llm_database_file=(
+                os.getenv('LLM_DATABASE_FILE', '').strip() or 'data/llm_chat.sqlite3'
+            ),
             public_address=os.getenv('PUBLIC_ADDRESS', '').strip(),
             console_enabled=boolean('CONSOLE_ENABLED', True),
             console_log_lines=min(5, max(0, integer('CONSOLE_LOG_LINES', 5))),

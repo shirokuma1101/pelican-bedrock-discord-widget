@@ -16,6 +16,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Administrator-managed donor message board
 - Discord messages forwarded to Minecraft with the Bedrock `say` command
 - Bot presence showing the current Minecraft player count
+- Optional mention-triggered AI chat threads backed by a LAN llama.cpp server
 - Optional Start / Restart / Stop buttons
 - Slash command or widget reaction-created temporary VC + listener text-channel pairs
 - One Discord message that is edited every N seconds
@@ -66,6 +67,18 @@ BEDROCK_PORT=19132
 UPDATE_INTERVAL_SECONDS=15
 PRESENCE_ENABLED=true
 PUBLIC_ADDRESS=example.com:19132
+
+# Optional LAN llama.cpp chat
+LLM_ENABLED=false
+LLM_BASE_URL=http://192.168.1.50:8080/v1
+LLM_MODEL=
+LLM_ALLOWED_CHANNEL_ID=123456789012345678
+LLM_SYSTEM_PROMPT=You are a friendly community chat bot.
+LLM_TIMEOUT_SECONDS=120
+LLM_MAX_HISTORY_MESSAGES=20
+LLM_MAX_CONCURRENT_REQUESTS=1
+LLM_MAX_TOKENS=512
+LLM_DATABASE_FILE=data/llm_chat.sqlite3
 
 KO_FI_URL=https://ko-fi.com/yourname
 KO_FI_GOAL_TITLE=サポート目標
@@ -140,6 +153,45 @@ The bot needs at least:
 - Send Messages
 - Embed Links
 - Read Message History
+
+The optional AI chat feature also needs **Create Public Threads** and
+**Send Messages in Threads**.
+
+## LAN llama.cpp AI chat
+
+Set `LLM_ENABLED=true` and mention the bot in `LLM_ALLOWED_CHANNEL_ID` to
+create a public AI chat thread. Messages posted in that thread are sent to the
+OpenAI-compatible endpoint at `/v1/chat/completions`. Replying to a bot message
+in the configured channel also starts a thread. Threads, messages, user settings,
+and long-term memories are stored in SQLite at `LLM_DATABASE_FILE`, so existing
+AI threads continue to work after a bot restart. Up to
+`LLM_MAX_HISTORY_MESSAGES` recent messages are sent with each request.
+
+The bot registers these AI commands when the feature is enabled:
+
+```text
+/ai_reset
+/ai_memory
+/ai_memory content:紅茶が好き
+/ai_memory enabled:false
+/ai_forget memory_id:1
+/ai_forget
+```
+
+`/ai_reset` clears the current thread's short-term conversation history. `/ai_memory`
+lists or adds the invoking user's long-term memories and can enable or disable
+their use. `/ai_forget` deletes one memory; omitting `memory_id` deletes all memories
+for that user. These responses are private except for `/ai_reset`.
+
+Run llama.cpp so the Pelican container can reach it over the LAN, for example:
+
+```bash
+llama-server -m /path/to/model.gguf --host 0.0.0.0 --port 8080 -c 8192 -np 2
+```
+
+Use the LLM host's LAN address in `LLM_BASE_URL`, not `localhost`, when
+the bot runs in a separate container. Do not expose the llama.cpp port to the
+Internet; restrict it to trusted LAN hosts with a firewall.
 
 The optional dynamic voice feature also needs **Manage Channels**, **Connect**,
 and **Manage Messages**. Manage Messages lets the bot remove a user's `🔊`

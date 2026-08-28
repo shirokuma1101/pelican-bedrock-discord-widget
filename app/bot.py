@@ -8,6 +8,7 @@ import aiohttp
 import discord
 from discord import app_commands
 
+from .ai_chat import LLMChatManager
 from .bedrock import BedrockClient
 from .config import Settings
 from .donations import DonationStore
@@ -72,10 +73,14 @@ class WidgetBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
         self.loop_task: asyncio.Task | None = None
         self.dynamic_voice: DynamicVoiceManager | None = None
+        self.ai_chat: LLMChatManager | None = None
         self._presence_text: str | None = None
 
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
+        if self.settings.llm_enabled:
+            self.ai_chat = LLMChatManager(self.settings, self.session)
+            await self.ai_chat.initialize()
         self.pelican = PelicanClient(self.settings.pelican_base_url,
                                      self.settings.pelican_server_id,
                                      self.settings.pelican_client_api_token,
@@ -174,6 +179,24 @@ class WidgetBot(discord.Client):
         for command in playtime_commands:
             self.tree.add_command(command, guild=guild_obj, override=True)
 
+        if self.ai_chat is not None:
+            ai_commands = (
+                app_commands.Command(
+                    name='ai_reset', description='現在のAIスレッドの会話履歴をリセットします',
+                    callback=self._ai_reset_command,
+                ),
+                app_commands.Command(
+                    name='ai_memory', description='AIの長期記憶を追加・確認・設定します',
+                    callback=self._ai_memory_command,
+                ),
+                app_commands.Command(
+                    name='ai_forget', description='AIが記憶している自分の情報を削除します',
+                    callback=self._ai_forget_command,
+                ),
+            )
+            for command in ai_commands:
+                self.tree.add_command(command, guild=guild_obj, override=True)
+
         if self.dynamic_voice is not None:
             voice_commands = (
                 app_commands.Command(
@@ -246,6 +269,17 @@ class WidgetBot(discord.Client):
             ),
             inline=False,
         )
+        if self.ai_chat is not None:
+            embed.add_field(
+                name='🤖 AI雑談',
+                value=(
+                    'BotへのメンションまたはReplyでAI雑談スレッドを開始\n'
+                    '`/ai_reset` — 現在のスレッドの会話履歴をリセット\n'
+                    '`/ai_memory` — 長期記憶の追加・確認・ON/OFF\n'
+                    '`/ai_forget` — 自分の長期記憶を削除'
+                ),
+                inline=False,
+            )
         if self.dynamic_voice is not None:
             embed.add_field(
                 name='🔊 一時VC',
@@ -324,6 +358,60 @@ class WidgetBot(discord.Client):
         assert self.playtime is not None
         self.playtime.reset()
         await interaction.response.send_message("プレイ時間ランキングをリセットしました。", ephemeral=True)
+
+    async def _ai_reset_command(self, interaction: discord.Interaction) -> None:
+        if self.ai_chat is None:
+            await interaction.response.send_message('AIチャット機能は無効です。', ephemeral=True)
+            return
+        if await self.ai_chat.reset(interaction.channel):
+            await interaction.response.send_message('このスレッドの会話履歴をリセットしました。')
+        else:
+            await interaction.response.send_message(
+                'このコマンドはAI雑談スレッド内で使用してください。', ephemeral=True,
+            )
+
+    @app_commands.describe(
+        content='AIに覚えさせる情報（省略すると現在の記憶を表示）',
+        enabled='長期記憶を会話で使用するかどうか',
+    )
+    async def _ai_memory_command(
+        self, interaction: discord.Interaction,
+        content: str | None = None, enabled: bool | None = None,
+    ) -> None:
+        if self.ai_chat is None:
+            await interaction.response.send_message('AIチャット機能は無効です。', ephemeral=True)
+            return
+        content = content.strip() if content else None
+        if content and len(content) > 500:
+            await interaction.response.send_message('記憶する内容は500文字以内にしてください。', ephemeral=True)
+            return
+        current, rows, memory_id = await self.ai_chat.memory(
+            interaction.user.id, interaction.user.display_name, content, enabled,
+        )
+        lines = [f'長期記憶: **{"ON" if current else "OFF"}**']
+        if memory_id is not None:
+            lines.append(f'記憶 `#{memory_id}` を追加しました。')
+        if rows:
+            lines.extend(f'`#{item_id}` {text}' for item_id, text in rows)
+        else:
+            lines.append('保存されている記憶はありません。')
+        await interaction.response.send_message('\n'.join(lines)[:1900], ephemeral=True)
+
+    @app_commands.describe(memory_id='削除する記憶ID（省略するとすべて削除）')
+    async def _ai_forget_command(
+        self, interaction: discord.Interaction, memory_id: int | None = None,
+    ) -> None:
+        if self.ai_chat is None:
+            await interaction.response.send_message('AIチャット機能は無効です。', ephemeral=True)
+            return
+        removed = await self.ai_chat.forget(interaction.user.id, memory_id)
+        if memory_id is None:
+            text = f'保存されていた長期記憶を{removed}件削除しました。'
+        elif removed:
+            text = f'長期記憶 `#{memory_id}` を削除しました。'
+        else:
+            text = f'長期記憶 `#{memory_id}` は見つかりませんでした。'
+        await interaction.response.send_message(text, ephemeral=True)
 
     async def _donation_remove_command(self, interaction: discord.Interaction, item_id: int) -> None:
         if await self._deny_donation_command(interaction):
@@ -507,13 +595,20 @@ class WidgetBot(discord.Client):
             self.loop_task = asyncio.create_task(self.update_loop())
 
     async def on_message(self, message: discord.Message) -> None:
-        """Forward messages from the configured Discord channel to Bedrock."""
+        """Handle AI conversations and Discord-to-Bedrock forwarding."""
         if message.author.bot:
             return
         if message.guild is None:
             return
         if message.guild.id != self.settings.discord_guild_id:
             return
+        if self.ai_chat is not None and self.user is not None:
+            if self.ai_chat.is_ai_thread(message.channel):
+                await self.ai_chat.continue_chat(message)
+                return
+            if await self.ai_chat.can_start(message, self.user):
+                await self.ai_chat.start(message, self.user)
+                return
         if message.channel.id != self.settings.discord_to_minecraft_channel_id:
             return
         if self.console is None:
