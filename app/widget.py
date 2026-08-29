@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 import logging
 
 import discord
@@ -12,6 +12,7 @@ from .playtime import PlaytimeStore
 from .embed import make_embed
 from .models import BedrockStatus, ConsoleSnapshot, KoFiGoal, PelicanServer, Resources, WidgetData
 from .pelican import PelicanClient
+from .timezones import JST
 from .views import ControlView
 from .wings_ws import WingsConsole
 
@@ -90,7 +91,7 @@ class WidgetManager:
         if self.settings.console_enabled and not console.connected:
             errors.append(f'Wings console: {console.last_error}' if console.last_error else 'Wings console: connecting...')
         data = WidgetData(server=server, resources=resources, bedrock=bedrock,
-                          console=console, last_updated=datetime.now(timezone.utc),
+                          console=console, last_updated=datetime.now(JST),
                           errors=errors,
                           donations=self.donations.all(),
                           kofi_goal=kofi_goal,

@@ -4,6 +4,7 @@ import discord
 
 from .config import Settings
 from .formatting import cpu_text, disk_text, memory_text, update_text
+from .timezones import JST
 from .models import WidgetData
 from .playtime import format_duration
 
@@ -102,7 +103,7 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     embed.add_field(
         name="🏆 プレイ時間ランキング",
         value=(
-            f"統計開始: `{data.playtime_started_at.astimezone().strftime('%Y-%m-%d')}`\n{ranking_text}"
+            f"統計開始: `{data.playtime_started_at.astimezone(JST).strftime('%Y-%m-%d')}`\n{ranking_text}"
             if data.playtime_started_at is not None
             else ranking_text
         ),

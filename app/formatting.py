@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from .timezones import JST
+
 
 def mb(value: int | None) -> float | None:
     return None if value is None else value / 1024 / 1024
@@ -50,4 +52,4 @@ def disk_text(used: int | None, limit_mb: int | None) -> str:
 
 
 def update_text(timestamp: datetime) -> str:
-    return timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    return timestamp.astimezone(JST).strftime("%Y-%m-%d %H:%M:%S")
