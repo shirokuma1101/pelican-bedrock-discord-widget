@@ -79,6 +79,7 @@ class Settings:
     player_list_enabled: bool
     player_list_command_interval_seconds: int
     max_players_displayed: int
+    player_emoji_file: str
     ko_fi_url: str
     ko_fi_goal_title: str
     ko_fi_goal_percentage: str
@@ -140,6 +141,9 @@ class Settings:
             player_list_enabled=boolean('PLAYER_LIST_ENABLED', True),
             player_list_command_interval_seconds=max(10, integer('PLAYER_LIST_COMMAND_INTERVAL_SECONDS', 30)),
             max_players_displayed=max(1, integer('MAX_PLAYERS_DISPLAYED', 20)),
+            player_emoji_file=os.getenv(
+                'PLAYER_EMOJI_FILE', 'data/player_emojis.json'
+            ).strip() or 'data/player_emojis.json',
             ko_fi_url=os.getenv('KO_FI_URL', '').strip(),
             ko_fi_goal_title=os.getenv('KO_FI_GOAL_TITLE', '').strip(),
             ko_fi_goal_percentage=os.getenv('KO_FI_GOAL_PERCENTAGE', '').strip(),

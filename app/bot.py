@@ -16,6 +16,7 @@ from .dynamic_voice import DynamicVoiceManager
 from .models import WidgetData
 from .pelican import PelicanClient
 from .playtime import PlaytimeStore, format_duration
+from .player_emojis import PlayerEmojiStore
 from .widget import WidgetManager
 from .wings_ws import WingsConsole
 
@@ -70,6 +71,7 @@ class WidgetBot(discord.Client):
         self.widget: WidgetManager | None = None
         self.donations: DonationStore | None = None
         self.playtime: PlaytimeStore | None = None
+        self.player_emojis: PlayerEmojiStore | None = None
         self.tree = app_commands.CommandTree(self)
         self.loop_task: asyncio.Task | None = None
         self.dynamic_voice: DynamicVoiceManager | None = None
@@ -86,6 +88,7 @@ class WidgetBot(discord.Client):
                                      self.settings.pelican_client_api_token,
                                      self.session)
         self.playtime = PlaytimeStore(self.settings.playtime_file)
+        self.player_emojis = PlayerEmojiStore(self.settings.player_emoji_file)
         bedrock = BedrockClient(self.settings.bedrock_host, self.settings.bedrock_port)
         if self.settings.console_enabled:
             self.console = WingsConsole(
@@ -110,7 +113,7 @@ class WidgetBot(discord.Client):
         self.donations = DonationStore(self.settings.donations_file)
         self.widget = WidgetManager(
             self.settings, channel, self.pelican, bedrock, self.console,
-            self.donations, self.playtime,
+            self.donations, self.playtime, self.player_emojis,
         )
         await self.widget.initialize()
         if self.settings.dynamic_voice_category_id is not None:
@@ -177,6 +180,26 @@ class WidgetBot(discord.Client):
             ),
         )
         for command in playtime_commands:
+            self.tree.add_command(command, guild=guild_obj, override=True)
+
+        player_emoji_commands = (
+            app_commands.Command(
+                name='player_emoji_add',
+                description='プレイヤー名に表示するカスタム絵文字を登録します',
+                callback=self._player_emoji_add_command,
+            ),
+            app_commands.Command(
+                name='player_emoji_remove',
+                description='プレイヤー名のカスタム絵文字登録を削除します',
+                callback=self._player_emoji_remove_command,
+            ),
+            app_commands.Command(
+                name='player_emoji_list',
+                description='プレイヤー名とカスタム絵文字の対応表を表示します',
+                callback=self._player_emoji_list_command,
+            ),
+        )
+        for command in player_emoji_commands:
             self.tree.add_command(command, guild=guild_obj, override=True)
 
         if self.ai_chat is not None:
@@ -293,7 +316,8 @@ class WidgetBot(discord.Client):
             )
         admin_commands = (
             '`/donation_add` `/donation_remove` `/donation_list` `/donation_clear`\n'
-            '`/playtime_reset`'
+            '`/playtime_reset`\n'
+            '`/player_emoji_add` `/player_emoji_remove` `/player_emoji_list`'
         )
         if self.dynamic_voice is not None:
             admin_commands += (
@@ -358,6 +382,70 @@ class WidgetBot(discord.Client):
         assert self.playtime is not None
         self.playtime.reset()
         await interaction.response.send_message("プレイ時間ランキングをリセットしました。", ephemeral=True)
+
+    @app_commands.describe(
+        player='Minecraftのプレイヤー名',
+        emoji='プレイヤー名の左側に表示するDiscordカスタム絵文字',
+    )
+    async def _player_emoji_add_command(
+        self, interaction: discord.Interaction, player: str, emoji: str,
+    ) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        assert self.player_emojis is not None
+        player = player.strip()
+        if not player or len(player) > 64:
+            await interaction.response.send_message(
+                'プレイヤー名は64文字以内で入力してください。', ephemeral=True,
+            )
+            return
+        parsed = discord.PartialEmoji.from_str(emoji.strip())
+        if parsed.id is None:
+            await interaction.response.send_message(
+                'Discordのカスタム絵文字を指定してください。', ephemeral=True,
+            )
+            return
+        try:
+            item = self.player_emojis.set(player, str(parsed))
+        except OSError:
+            log.exception('Failed to save player emoji mapping')
+            await interaction.response.send_message('対応表の保存に失敗しました。', ephemeral=True)
+            return
+        await interaction.response.send_message(
+            f'{item.emoji} `{item.player}` を登録しました。', ephemeral=True,
+        )
+
+    @app_commands.describe(player='登録を削除するMinecraftのプレイヤー名')
+    async def _player_emoji_remove_command(
+        self, interaction: discord.Interaction, player: str,
+    ) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        assert self.player_emojis is not None
+        try:
+            removed = self.player_emojis.remove(player)
+        except OSError:
+            log.exception('Failed to save player emoji mapping')
+            await interaction.response.send_message('対応表の保存に失敗しました。', ephemeral=True)
+            return
+        if removed is None:
+            text = f'`{player.strip()}` は登録されていません。'
+        else:
+            text = f'{removed.emoji} `{removed.player}` の登録を削除しました。'
+        await interaction.response.send_message(text, ephemeral=True)
+
+    async def _player_emoji_list_command(self, interaction: discord.Interaction) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        assert self.player_emojis is not None
+        rows = [
+            f'{item.emoji} `{item.player}`'
+            for item in self.player_emojis.all()
+        ]
+        await interaction.response.send_message(
+            ('\n'.join(rows)[:1900] if rows else 'プレイヤー絵文字は登録されていません。'),
+            ephemeral=True,
+        )
 
     async def _ai_reset_command(self, interaction: discord.Interaction) -> None:
         if self.ai_chat is None:

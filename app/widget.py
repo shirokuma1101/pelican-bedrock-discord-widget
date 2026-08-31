@@ -9,6 +9,7 @@ from .bedrock import BedrockClient
 from .config import Settings
 from .donations import DonationStore
 from .playtime import PlaytimeStore
+from .player_emojis import PlayerEmojiStore
 from .embed import make_embed
 from .models import BedrockStatus, ConsoleSnapshot, KoFiGoal, PelicanServer, Resources, WidgetData
 from .pelican import PelicanClient
@@ -24,7 +25,8 @@ class WidgetManager:
                  pelican: PelicanClient, bedrock: BedrockClient,
                  console: WingsConsole | None,
                  donations: DonationStore,
-                 playtime: PlaytimeStore) -> None:
+                 playtime: PlaytimeStore,
+                 player_emojis: PlayerEmojiStore) -> None:
         self.settings = settings
         self.channel = channel
         self.pelican = pelican
@@ -32,6 +34,7 @@ class WidgetManager:
         self.console = console
         self.donations = donations
         self.playtime = playtime
+        self.player_emojis = player_emojis
         self.message: discord.Message | None = None
 
     async def initialize(self) -> None:
@@ -96,7 +99,11 @@ class WidgetManager:
                           donations=self.donations.all(),
                           kofi_goal=kofi_goal,
                           playtime_ranking=self.playtime.ranking(),
-                          playtime_started_at=self.playtime.period_started_at)
+                          playtime_started_at=self.playtime.period_started_at,
+                          player_emojis={
+                              item.player.casefold(): item.emoji
+                              for item in self.player_emojis.all()
+                          })
         view = ControlView(self.pelican, self.settings) if self.settings.enable_control_buttons else None
         await self.message.edit(content=None, embed=make_embed(data, self.settings), view=view)
         return data

@@ -70,3 +70,4 @@ class WidgetData:
     kofi_goal: KoFiGoal | None = None
     playtime_ranking: list[tuple[str, int]] = field(default_factory=list)
     playtime_started_at: datetime | None = None
+    player_emojis: dict[str, str] = field(default_factory=dict)

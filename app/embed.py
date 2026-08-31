@@ -82,7 +82,12 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         if data.console.players:
             visible = data.console.players[: settings.max_players_displayed]
             player_text = f"`{count}`\n" + "\n".join(
-                f"`{name}`" for name in visible
+                (
+                    f"{data.player_emojis[name.casefold()]} `{name}`"
+                    if name.casefold() in data.player_emojis
+                    else f"`{name}`"
+                )
+                for name in visible
             )
             extra = len(data.console.players) - len(visible)
             if extra > 0:

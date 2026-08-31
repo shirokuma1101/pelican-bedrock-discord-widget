@@ -11,6 +11,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Bedrock version and player count
 - MOTD in the Embed title
 - Player names from the Wings console WebSocket `list` command
+- Administrator-managed custom emoji displayed beside online player names
 - Server console logs (latest five lines, excluding `list` output)
 - Ko-fi support link
 - Administrator-managed donor message board
@@ -93,6 +94,7 @@ CONSOLE_LOG_LINES=5
 PLAYER_LIST_ENABLED=true
 PLAYER_LIST_COMMAND_INTERVAL_SECONDS=30
 MAX_PLAYERS_DISPLAYED=20
+PLAYER_EMOJI_FILE=data/player_emojis.json
 
 # Optional dynamic voice channels
 DYNAMIC_VOICE_CATEGORY_ID=123456789012345678
@@ -140,6 +142,21 @@ empty messages, and messages from another guild are ignored. This uses the
 existing Wings WebSocket connection, so `CONSOLE_ENABLED=true` is required.
 Enable the **Message Content Intent** for the bot in the Discord Developer
 Portal, because Discord otherwise does not provide message text to the bot.
+
+## Player custom emoji
+
+Administrators and roles listed in `CONTROL_ROLE_IDS` can associate a Minecraft
+player name with a Discord custom emoji:
+
+```text
+/player_emoji_add player:PlayerName emoji:<:member:123456789012345678>
+/player_emoji_remove player:PlayerName
+/player_emoji_list
+```
+
+Registered emoji are shown to the left of matching online player names. Player
+name matching is case-insensitive, and mappings are stored in
+`PLAYER_EMOJI_FILE` (default: `data/player_emojis.json`).
 
 ## Pelican token
 
