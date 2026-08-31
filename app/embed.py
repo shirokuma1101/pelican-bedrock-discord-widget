@@ -158,6 +158,30 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         backups_text = "なし"
     embed.add_field(name="💾 バックアップ履歴", value=backups_text[:1024], inline=True)
 
+    if data.cpu_watts is not None:
+        storage_watts = (
+            settings.hdd_count * settings.hdd_watts_each
+            + settings.ssd_count * settings.ssd_watts_each
+        )
+        total_watts = (
+            data.cpu_watts + storage_watts + settings.other_hardware_watts
+        )
+        monthly_cost = (
+            total_watts / 1000
+            * 24
+            * 30
+            * settings.electricity_yen_per_kwh
+        )
+        electricity_text = (
+            f"**PC全体概算**\n"
+            f"{total_watts:.1f} W\n"
+            f"**月額概算**\n"
+            f"約{monthly_cost:,.0f}円/月"
+        )
+    else:
+        electricity_text = "**PC全体概算**\nN/A\n**月額概算**\nN/A"
+    embed.add_field(name="⚡ 電気料金", value=electricity_text, inline=True)
+
     if data.console.logs:
         lines = data.console.logs[-settings.console_log_lines:]
         logs = "\n".join(

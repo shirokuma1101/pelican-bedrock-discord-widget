@@ -7,6 +7,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Pelican Client API server/resource monitoring
 - Vanilla Bedrock UDP status monitoring
 - CPU, memory and disk usage with limits and percentages when available
+- Optional CPU power and estimated monthly electricity cost from VictoriaMetrics
 - Bedrock online/offline state
 - Bedrock version and player count
 - MOTD in the Embed title
@@ -70,6 +71,17 @@ PRESENCE_ENABLED=true
 PUBLIC_ADDRESS=example.com:19132
 WEBSITE_URL=https://example.com/
 
+# Optional CPU power and monthly electricity-cost estimate
+VICTORIA_METRICS_URL=https://metrics.example.com/api/v1/query
+VICTORIA_METRICS_QUERY=ohm_cpu_watts{instance="server",sensor="CPU Package"}
+POWER_AVERAGE_WINDOW=7d
+ELECTRICITY_YEN_PER_KWH=32.6
+HDD_COUNT=1
+HDD_WATTS_EACH=8
+SSD_COUNT=2
+SSD_WATTS_EACH=3
+OTHER_HARDWARE_WATTS=30
+
 # Optional LAN llama.cpp chat
 LLM_ENABLED=false
 LLM_BASE_URL=http://192.168.1.50:8080/v1
@@ -106,6 +118,9 @@ DYNAMIC_VOICE_REACTIONS_FILE=data/dynamic_voice_reactions.json
 
 The bot creates the widget message automatically if `DISCORD_MESSAGE_ID` is empty.
 When `WEBSITE_URL` is set, the Embed author links to that website.
+The monthly electricity estimate uses the average CPU power over
+`POWER_AVERAGE_WINDOW`, adds the configured storage and other hardware estimates,
+and assumes that total remains constant for 24 hours a day over 30 days.
 
 Use `/help` in Discord to display an ephemeral overview of the bot's features,
 general commands, dynamic voice controls, and administrator commands.

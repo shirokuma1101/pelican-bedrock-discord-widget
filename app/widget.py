@@ -15,6 +15,7 @@ from .models import BedrockStatus, ConsoleSnapshot, KoFiGoal, PelicanServer, Res
 from .pelican import PelicanClient
 from .timezones import JST
 from .views import ControlView
+from .victoria_metrics import VictoriaMetricsClient
 from .wings_ws import WingsConsole
 
 log = logging.getLogger(__name__)
@@ -26,7 +27,8 @@ class WidgetManager:
                  console: WingsConsole | None,
                  donations: DonationStore,
                  playtime: PlaytimeStore,
-                 player_emojis: PlayerEmojiStore) -> None:
+                 player_emojis: PlayerEmojiStore,
+                 victoria_metrics: VictoriaMetricsClient | None = None) -> None:
         self.settings = settings
         self.channel = channel
         self.pelican = pelican
@@ -35,6 +37,7 @@ class WidgetManager:
         self.donations = donations
         self.playtime = playtime
         self.player_emojis = player_emojis
+        self.victoria_metrics = victoria_metrics
         self.message: discord.Message | None = None
 
     async def initialize(self) -> None:
@@ -68,6 +71,12 @@ class WidgetManager:
         except Exception as exc:
             backups = []
             errors.append(f'Pelican backups: {exc}')
+        cpu_watts = None
+        if self.victoria_metrics is not None:
+            try:
+                cpu_watts = await self.victoria_metrics.get_cpu_watts()
+            except Exception as exc:
+                errors.append(f'VictoriaMetrics: {exc}')
         try:
             bedrock = await self.bedrock.status()
         except Exception as exc:
@@ -106,6 +115,7 @@ class WidgetManager:
                           playtime_ranking=self.playtime.ranking(),
                           playtime_started_at=self.playtime.period_started_at,
                           backups=backups,
+                          cpu_watts=cpu_watts,
                           player_emojis={
                               item.player.casefold(): item.emoji
                               for item in self.player_emojis.all()

@@ -18,6 +18,7 @@ from .pelican import PelicanClient
 from .playtime import PlaytimeStore, format_duration
 from .player_emojis import PlayerEmojiStore
 from .widget import WidgetManager
+from .victoria_metrics import VictoriaMetricsClient
 from .wings_ws import WingsConsole
 
 log = logging.getLogger(__name__)
@@ -89,6 +90,14 @@ class WidgetBot(discord.Client):
                                      self.session)
         self.playtime = PlaytimeStore(self.settings.playtime_file)
         self.player_emojis = PlayerEmojiStore(self.settings.player_emoji_file)
+        victoria_metrics = None
+        if self.settings.victoria_metrics_url:
+            victoria_metrics = VictoriaMetricsClient(
+                self.settings.victoria_metrics_url,
+                self.settings.victoria_metrics_query,
+                self.settings.power_average_window,
+                self.session,
+            )
         bedrock = BedrockClient(self.settings.bedrock_host, self.settings.bedrock_port)
         if self.settings.console_enabled:
             self.console = WingsConsole(
@@ -113,7 +122,7 @@ class WidgetBot(discord.Client):
         self.donations = DonationStore(self.settings.donations_file)
         self.widget = WidgetManager(
             self.settings, channel, self.pelican, bedrock, self.console,
-            self.donations, self.playtime, self.player_emojis,
+            self.donations, self.playtime, self.player_emojis, victoria_metrics,
         )
         await self.widget.initialize()
         if self.settings.dynamic_voice_category_id is not None:

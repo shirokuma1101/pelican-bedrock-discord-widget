@@ -80,3 +80,4 @@ class WidgetData:
     playtime_started_at: datetime | None = None
     player_emojis: dict[str, str] = field(default_factory=dict)
     backups: list[Backup] = field(default_factory=list)
+    cpu_watts: float | None = None

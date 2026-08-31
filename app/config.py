@@ -19,6 +19,11 @@ def integer(name: str, default: int) -> int:
     return default if not raw else int(raw)
 
 
+def number(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    return default if not raw else float(raw)
+
+
 def boolean(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -63,6 +68,15 @@ class Settings:
     update_interval_seconds: int
     presence_enabled: bool
     website_url: str
+    victoria_metrics_url: str
+    victoria_metrics_query: str
+    power_average_window: str
+    electricity_yen_per_kwh: float
+    hdd_count: int
+    hdd_watts_each: float
+    ssd_count: int
+    ssd_watts_each: float
+    other_hardware_watts: float
     llm_enabled: bool
     llm_base_url: str
     llm_model: str
@@ -120,6 +134,24 @@ class Settings:
             update_interval_seconds=max(5, integer('UPDATE_INTERVAL_SECONDS', 15)),
             presence_enabled=boolean('PRESENCE_ENABLED', True),
             website_url=os.getenv('WEBSITE_URL', '').strip(),
+            victoria_metrics_url=os.getenv('VICTORIA_METRICS_URL', '').strip(),
+            victoria_metrics_query=os.getenv(
+                'VICTORIA_METRICS_QUERY',
+                'ohm_cpu_watts{instance="shirokuma1103",sensor="CPU Package"}',
+            ).strip(),
+            power_average_window=(
+                os.getenv('POWER_AVERAGE_WINDOW', '7d').strip() or '7d'
+            ),
+            electricity_yen_per_kwh=max(
+                0.0, number('ELECTRICITY_YEN_PER_KWH', 32.6)
+            ),
+            hdd_count=max(0, integer('HDD_COUNT', 1)),
+            hdd_watts_each=max(0.0, number('HDD_WATTS_EACH', 8.0)),
+            ssd_count=max(0, integer('SSD_COUNT', 2)),
+            ssd_watts_each=max(0.0, number('SSD_WATTS_EACH', 3.0)),
+            other_hardware_watts=max(
+                0.0, number('OTHER_HARDWARE_WATTS', 30.0)
+            ),
             llm_enabled=boolean_with_legacy('LLM_ENABLED', 'LLAMA_ENABLED', False),
             llm_base_url=env_with_legacy('LLM_BASE_URL', 'LLAMA_BASE_URL').rstrip('/'),
             llm_model=env_with_legacy('LLM_MODEL', 'LLAMA_MODEL'),
