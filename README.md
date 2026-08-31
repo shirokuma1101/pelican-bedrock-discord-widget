@@ -67,6 +67,7 @@ BEDROCK_PORT=19132
 UPDATE_INTERVAL_SECONDS=15
 PRESENCE_ENABLED=true
 PUBLIC_ADDRESS=example.com:19132
+WEBSITE_URL=https://example.com/
 
 # Optional LAN llama.cpp chat
 LLM_ENABLED=false
@@ -102,6 +103,7 @@ DYNAMIC_VOICE_REACTIONS_FILE=data/dynamic_voice_reactions.json
 ```
 
 The bot creates the widget message automatically if `DISCORD_MESSAGE_ID` is empty.
+When `WEBSITE_URL` is set, the Embed author links to that website.
 
 Use `/help` in Discord to display an ephemeral overview of the bot's features,
 general commands, dynamic voice controls, and administrator commands.

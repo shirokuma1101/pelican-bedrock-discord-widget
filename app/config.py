@@ -62,6 +62,7 @@ class Settings:
     bedrock_port: int
     update_interval_seconds: int
     presence_enabled: bool
+    website_url: str
     llm_enabled: bool
     llm_base_url: str
     llm_model: str
@@ -117,6 +118,7 @@ class Settings:
             bedrock_port=integer('BEDROCK_PORT', 19132),
             update_interval_seconds=max(5, integer('UPDATE_INTERVAL_SECONDS', 15)),
             presence_enabled=boolean('PRESENCE_ENABLED', True),
+            website_url=os.getenv('WEBSITE_URL', '').strip(),
             llm_enabled=boolean_with_legacy('LLM_ENABLED', 'LLAMA_ENABLED', False),
             llm_base_url=env_with_legacy('LLM_BASE_URL', 'LLAMA_BASE_URL').rstrip('/'),
             llm_model=env_with_legacy('LLM_MODEL', 'LLAMA_MODEL'),

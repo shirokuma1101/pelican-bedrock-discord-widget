@@ -35,11 +35,16 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         title=title[:256],
         colour=colour,
     )
-    embed.set_author(
-        name="GitHub",
-        url="https://github.com/shirokuma1101/pelican-bedrock-discord-widget",
-    )
-
+    if settings.website_url:
+        embed.set_author(
+            name="PostMineClan 公式サイト",
+            url=settings.website_url,
+        )
+    else:
+        embed.set_author(
+            name="GitHub",
+            url="https://github.com/shirokuma1101/pelican-bedrock-discord-widget",
+        )
     address = settings.public_address or f"{settings.bedrock_host}:{settings.bedrock_port}"
 
     connection_state = "🟢 接続" if data.bedrock.online else "🔴 未接続"
@@ -148,6 +153,10 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         support_text = f"[Ko-fiで支援する]({settings.ko_fi_url})"
     else:
         support_text = "未設定"
+    support_text += (
+        "\n[GitHubを見る]"
+        "(https://github.com/shirokuma1101/pelican-bedrock-discord-widget)"
+    )
     embed.add_field(name="☕ サポート", value=support_text, inline=True)
     if data.kofi_goal:
         goal_text = (
