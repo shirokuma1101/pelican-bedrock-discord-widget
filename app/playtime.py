@@ -214,7 +214,7 @@ def format_duration(seconds: int) -> str:
     seconds = max(0, int(seconds))
     hours, remainder = divmod(seconds, 3600)
     minutes, _ = divmod(remainder, 60)
-    return f"{hours}時間{minutes:02d}分"
+    return f"{hours}h{minutes:02d}m"
 
 
 def _cron_field_matches(value: int, field: str, minimum: int, maximum: int) -> bool:
