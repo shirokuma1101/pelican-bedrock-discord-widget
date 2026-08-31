@@ -3,7 +3,7 @@ from __future__ import annotations
 import discord
 
 from .config import Settings
-from .formatting import cpu_text, disk_text, memory_text, update_text
+from .formatting import mb, progress_bar, update_text
 from .timezones import JST
 from .models import WidgetData
 from .playtime import format_duration
@@ -16,6 +16,13 @@ def goal_progress_bar(value: str, width: int = 10) -> str:
         return f"[{'░' * width}] {value}%"
     filled = round(percentage / 100 * width)
     return f"[{'█' * filled}{'░' * (width - filled)}] {percentage:.2f}%"
+
+
+def resource_percentage(label: str, used: float | None, limit: float | None) -> str:
+    if used is None or limit is None or limit <= 0:
+        return f"`{label} {'░' * 10} N/A`"
+    percentage = used / limit * 100
+    return f"`{label} {progress_bar(percentage)} {percentage:.2f}%`"
 
 
 def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
@@ -105,15 +112,15 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
 
     if data.playtime_ranking:
         ranking_text = "\n".join(
-            f"**{index}位** {player} — `{format_duration(seconds)}`"
+            f"`{index}位 {player} — {format_duration(seconds)}`"
             for index, (player, seconds) in enumerate(data.playtime_ranking[:5], 1)
         )
     else:
-        ranking_text = "なし"
+        ranking_text = "`なし`"
     embed.add_field(
         name="🏆 プレイ時間ランキング",
         value=(
-            f"統計開始: `{data.playtime_started_at.astimezone(JST).strftime('%Y-%m-%d')}`\n{ranking_text}"
+            f"`統計開始: {data.playtime_started_at.astimezone(JST).strftime('%Y-%m-%d')}`\n{ranking_text}"
             if data.playtime_started_at is not None
             else ranking_text
         ),
@@ -122,21 +129,34 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     # Fill the third inline column so resource fields start on the next row.
     embed.add_field(name="\u200b", value="\u200b", inline=True)
 
-    embed.add_field(
-        name="CPU使用量",
-        value=f"`{cpu_text(data.resources.cpu_absolute, data.server.cpu_limit)}`",
-        inline=True,
-    )
-    embed.add_field(
-        name="メモリ使用量",
-        value=f"`{memory_text(data.resources.memory_bytes, data.server.memory_limit_mb)}`",
-        inline=True,
-    )
-    embed.add_field(
-        name="ディスク使用量",
-        value=f"`{disk_text(data.resources.disk_bytes, data.server.disk_limit_mb)}`",
-        inline=True,
-    )
+    memory_used_mb = mb(data.resources.memory_bytes)
+    disk_used_mb = mb(data.resources.disk_bytes)
+    resources_text = "\n".join((
+        resource_percentage("CPU", data.resources.cpu_absolute, data.server.cpu_limit),
+        resource_percentage("MEM", memory_used_mb, data.server.memory_limit_mb),
+        resource_percentage("DSK", disk_used_mb, data.server.disk_limit_mb),
+    ))
+    embed.add_field(name="📊 リソース使用率", value=resources_text, inline=True)
+
+    if data.backups:
+        backup_lines = []
+        for backup in data.backups[:3]:
+            if backup.completed_at is None:
+                status = "⏳"
+            elif backup.successful is True:
+                status = "✅"
+            else:
+                status = "❌"
+            created = (
+                backup.created_at.astimezone(JST).strftime("%m/%d %H:%M")
+                if backup.created_at is not None
+                else "日時不明"
+            )
+            backup_lines.append(f"{status} `{created}`")
+        backups_text = "\n".join(backup_lines)
+    else:
+        backups_text = "なし"
+    embed.add_field(name="💾 バックアップ履歴", value=backups_text[:1024], inline=True)
 
     if data.console.logs:
         lines = data.console.logs[-settings.console_log_lines:]

@@ -59,6 +59,14 @@ class KoFiGoal:
 
 
 @dataclass
+class Backup:
+    name: str
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+    successful: bool | None = None
+
+
+@dataclass
 class WidgetData:
     server: PelicanServer
     resources: Resources
@@ -71,3 +79,4 @@ class WidgetData:
     playtime_ranking: list[tuple[str, int]] = field(default_factory=list)
     playtime_started_at: datetime | None = None
     player_emojis: dict[str, str] = field(default_factory=dict)
+    backups: list[Backup] = field(default_factory=list)

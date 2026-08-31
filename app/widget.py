@@ -64,6 +64,11 @@ class WidgetManager:
             resources = Resources()
             errors.append(f'Pelican resources: {exc}')
         try:
+            backups = await self.pelican.get_backups()
+        except Exception as exc:
+            backups = []
+            errors.append(f'Pelican backups: {exc}')
+        try:
             bedrock = await self.bedrock.status()
         except Exception as exc:
             bedrock = BedrockStatus()
@@ -100,6 +105,7 @@ class WidgetManager:
                           kofi_goal=kofi_goal,
                           playtime_ranking=self.playtime.ranking(),
                           playtime_started_at=self.playtime.period_started_at,
+                          backups=backups,
                           player_emojis={
                               item.player.casefold(): item.emoji
                               for item in self.player_emojis.all()

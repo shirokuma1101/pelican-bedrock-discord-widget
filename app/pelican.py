@@ -4,7 +4,9 @@ from typing import Any
 
 import aiohttp
 
-from .models import PelicanServer, Resources
+from datetime import datetime, timezone
+
+from .models import Backup, PelicanServer, Resources
 
 
 class PelicanAPIError(RuntimeError):
@@ -80,6 +82,26 @@ class PelicanClient:
             disk_bytes=to_int(resource.get("disk_bytes")),
         )
 
+    async def get_backups(self) -> list[Backup]:
+        payload = await self.request("GET", "/backups")
+        items = payload.get("data", []) if isinstance(payload, dict) else []
+        backups: list[Backup] = []
+        for item in items:
+            attr = item.get("attributes", item) if isinstance(item, dict) else {}
+            backups.append(
+                Backup(
+                    name=attr.get("name") or "名称なし",
+                    created_at=parse_datetime(attr.get("created_at")),
+                    completed_at=parse_datetime(attr.get("completed_at")),
+                    successful=attr.get("is_successful"),
+                )
+            )
+        return sorted(
+            backups,
+            key=lambda backup: backup.created_at or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+
     async def power(self, signal: str) -> None:
         if signal not in {"start", "stop", "restart", "kill"}:
             raise ValueError(signal)
@@ -118,4 +140,13 @@ def to_int(value: Any) -> int | None:
     try:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
+        return None
+
+
+def parse_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
         return None
