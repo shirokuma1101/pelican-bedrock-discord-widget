@@ -61,6 +61,11 @@ class PlaytimeStore:
             normalised_key = self._key(player)
             item = dict(raw_item)
             item["player"] = player
+            if "lifetime_seconds" not in item:
+                # Existing data represents all playtime recorded so far, so
+                # use it as the initial lifetime value during migration.
+                item["lifetime_seconds"] = int(item.get("total_seconds", 0))
+                changed = True
             if normalised_key != key or item["player"] != raw_item.get("player"):
                 changed = True
             if normalised_key not in normalised:
@@ -72,6 +77,9 @@ class PlaytimeStore:
             existing["total_seconds"] = int(existing.get("total_seconds", 0)) + int(
                 item.get("total_seconds", 0)
             )
+            existing["lifetime_seconds"] = int(
+                existing.get("lifetime_seconds", 0)
+            ) + int(item.get("lifetime_seconds", 0))
             if existing.get("active_since") is None:
                 existing["active_since"] = item.get("active_since")
             if item.get("last_joined_at") and (
@@ -110,6 +118,7 @@ class PlaytimeStore:
         item = self._items.setdefault(key, {
             "player": player.strip(),
             "total_seconds": 0,
+            "lifetime_seconds": 0,
             "active_since": None,
             "last_joined_at": None,
             "last_left_at": None,
@@ -136,6 +145,7 @@ class PlaytimeStore:
         except (TypeError, ValueError):
             elapsed = 0
         item["total_seconds"] = int(item.get("total_seconds", 0)) + elapsed
+        item["lifetime_seconds"] = int(item.get("lifetime_seconds", 0)) + elapsed
         item["active_since"] = None
         item["last_left_at"] = left.isoformat()
         self._save()
@@ -159,24 +169,49 @@ class PlaytimeStore:
             except (TypeError, ValueError):
                 elapsed = 0
             item["total_seconds"] = int(item.get("total_seconds", 0)) + elapsed
+            item["lifetime_seconds"] = int(item.get("lifetime_seconds", 0)) + elapsed
             item["active_since"] = None
             item["last_left_at"] = timestamp.isoformat()
             changed = True
         if changed or not self.path.exists():
             self._save()
 
-    def total_seconds(self, player: str) -> int:
+    def total_seconds(self, player: str, now: datetime | None = None) -> int:
         item = self._items.get(self._key(player))
-        return self._total(item) if item else 0
+        return self._total(item, now) if item else 0
+
+    def lifetime_seconds(self, player: str, now: datetime | None = None) -> int:
+        item = self._items.get(self._key(player))
+        return self._total(item, now, field="lifetime_seconds") if item else 0
 
     def ranking(self, now: datetime | None = None) -> list[tuple[str, int]]:
         timestamp = now or self._now()
         result = [(str(item.get("player", key)), self._total(item, timestamp)) for key, item in self._items.items()]
         return sorted(result, key=lambda value: (-value[1], value[0].casefold()))
 
+    def lifetime_ranking(self, now: datetime | None = None) -> list[tuple[str, int]]:
+        timestamp = now or self._now()
+        result = [
+            (
+                str(item.get("player", key)),
+                self._total(item, timestamp, field="lifetime_seconds"),
+            )
+            for key, item in self._items.items()
+        ]
+        return sorted(result, key=lambda value: (-value[1], value[0].casefold()))
+
     def reset(self, now: datetime | None = None) -> None:
         timestamp = now or self._now()
         for item in self._items.values():
+            if item.get("active_since"):
+                try:
+                    started = datetime.fromisoformat(item["active_since"])
+                    elapsed = max(0, int((timestamp - started).total_seconds()))
+                except (TypeError, ValueError):
+                    elapsed = 0
+                item["lifetime_seconds"] = int(
+                    item.get("lifetime_seconds", 0)
+                ) + elapsed
             item["total_seconds"] = 0
             item["active_since"] = timestamp.isoformat() if item.get("active_since") else None
         self.period_started_at = timestamp
@@ -218,8 +253,13 @@ class PlaytimeStore:
         return self._next_reset
 
     @staticmethod
-    def _total(item: dict, now: datetime | None = None) -> int:
-        total = int(item.get("total_seconds", 0))
+    def _total(
+        item: dict,
+        now: datetime | None = None,
+        *,
+        field: str = "total_seconds",
+    ) -> int:
+        total = int(item.get(field, 0))
         if item.get("active_since"):
             try:
                 total += max(0, int(((now or datetime.now(timezone.utc)) - datetime.fromisoformat(item["active_since"])).total_seconds()))

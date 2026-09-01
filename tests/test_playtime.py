@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.playtime import _cron_matches, _next_cron_minute, format_duration
+from app.playtime import PlaytimeStore, _cron_matches, _next_cron_minute, format_duration
 
 
 def test_format_duration_uses_compact_hours_and_minutes():
@@ -47,3 +47,34 @@ def test_next_monthly_cron_minute():
         "0 0 1 * *",
         datetime(2026, 9, 1, 0, 0, tzinfo=timezone.utc),
     ) == datetime(2026, 10, 1, 0, 0, tzinfo=timezone.utc)
+
+
+def test_period_reset_preserves_lifetime_playtime(tmp_path):
+    store = PlaytimeStore(str(tmp_path / "playtime.json"))
+    joined = datetime(2026, 9, 1, 0, 0, tzinfo=timezone.utc)
+    reset_at = datetime(2026, 9, 1, 1, 0, tzinfo=timezone.utc)
+    left = datetime(2026, 9, 1, 2, 0, tzinfo=timezone.utc)
+
+    store.mark_online("Steve", joined)
+    store.reset(reset_at)
+
+    assert store.total_seconds("Steve", reset_at) == 0
+    assert store.lifetime_seconds("Steve", reset_at) == 3600
+
+    store.mark_offline("Steve", left)
+
+    assert store.total_seconds("Steve") == 3600
+    assert store.lifetime_seconds("Steve") == 7200
+
+
+def test_existing_playtime_is_migrated_to_lifetime(tmp_path):
+    path = tmp_path / "playtime.json"
+    path.write_text(
+        '{"players":{"steve":{"player":"Steve","total_seconds":120,"active_since":null}}}',
+        encoding="utf-8",
+    )
+
+    store = PlaytimeStore(str(path))
+
+    assert store.total_seconds("Steve") == 120
+    assert store.lifetime_seconds("Steve") == 120

@@ -332,9 +332,10 @@ shown at the bottom of the widget. Keep the `data/` directory outside Git.
 
 ## Playtime ranking
 
-The bot records cumulative online time from Wings join/leave events and
-periodic `list` results. Data is stored in `PLAYTIME_FILE` (default:
-`data/playtime.json`) without additional dependencies.
+The bot records online time from Wings join/leave events and periodic `list`
+results. It keeps both a resettable period ranking and a permanent lifetime
+ranking in `PLAYTIME_FILE` (default: `data/playtime.json`) without additional
+dependencies. Existing data is migrated into both counters automatically.
 
 ```text
 /playtime player:名前
@@ -342,8 +343,10 @@ periodic `list` results. Data is stored in `PLAYTIME_FILE` (default:
 /playtime_reset
 ```
 
+`/playtime` and `/playtime_ranking` show both period and lifetime totals.
 `/playtime_reset` is restricted to Discord administrators and roles listed in
-`CONTROL_ROLE_IDS`.
+`CONTROL_ROLE_IDS`; it resets only the period ranking and never the lifetime
+ranking.
 
 Set `PLAYTIME_RESET_CRON` to a standard five-field cron expression to reset
 the ranking automatically. The default example resets at 00:00 on the first
@@ -353,9 +356,9 @@ day of each month in the server's local timezone:
 PLAYTIME_RESET_CRON=0 0 1 * *
 ```
 
-Leave it empty to disable automatic resets. The current statistics start date
-and the next scheduled reset date/time are shown in the playtime ranking field
-of the Embed.
+Leave it empty to disable automatic resets. Cron also resets only the period
+ranking. The current period start date and next scheduled reset date/time are
+shown in the Embed; the lifetime ranking remains permanently accumulated.
 
 ## API routes used
 

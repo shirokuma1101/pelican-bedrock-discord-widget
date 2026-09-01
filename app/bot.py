@@ -367,22 +367,33 @@ class WidgetBot(discord.Client):
             await interaction.response.send_message("プレイヤー名を32文字以内で入力してください。", ephemeral=True)
             return
         await interaction.response.send_message(
-            f"**{player}** の累計プレイ時間: `{format_duration(self.playtime.total_seconds(player))}`",
+            f"**{player}** のプレイ時間\n"
+            f"期間内: `{format_duration(self.playtime.total_seconds(player))}`\n"
+            f"累計: `{format_duration(self.playtime.lifetime_seconds(player))}`",
             ephemeral=True,
         )
 
     async def _playtime_ranking_command(self, interaction: discord.Interaction) -> None:
         assert self.playtime is not None
-        rows = self.playtime.ranking()[:10]
-        if rows:
-            text = "\n".join(
+        period_rows = self.playtime.ranking()[:10]
+        lifetime_rows = self.playtime.lifetime_ranking()[:10]
+        if period_rows:
+            period_text = "\n".join(
                 f"**{index}位** {name} — `{format_duration(seconds)}`"
-                for index, (name, seconds) in enumerate(rows, 1)
+                for index, (name, seconds) in enumerate(period_rows, 1)
             )
         else:
-            text = "まだプレイ時間の記録がありません。"
+            period_text = "まだプレイ時間の記録がありません。"
+        if lifetime_rows:
+            lifetime_text = "\n".join(
+                f"**{index}位** {name} — `{format_duration(seconds)}`"
+                for index, (name, seconds) in enumerate(lifetime_rows, 1)
+            )
+        else:
+            lifetime_text = "まだプレイ時間の記録がありません。"
         await interaction.response.send_message(
-            f"🏆 プレイ時間ランキング\n{text}"
+            f"🏆 期間プレイ時間ランキング\n{period_text}\n\n"
+            f"♾️ 累計プレイ時間ランキング\n{lifetime_text}"
         )
 
     async def _playtime_reset_command(self, interaction: discord.Interaction) -> None:
@@ -390,7 +401,10 @@ class WidgetBot(discord.Client):
             return
         assert self.playtime is not None
         self.playtime.reset()
-        await interaction.response.send_message("プレイ時間ランキングをリセットしました。", ephemeral=True)
+        await interaction.response.send_message(
+            "期間プレイ時間ランキングをリセットしました。累計記録は維持されます。",
+            ephemeral=True,
+        )
 
     @app_commands.describe(
         player='Minecraftのプレイヤー名',
