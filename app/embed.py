@@ -123,7 +123,7 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         else 'なし'
     )
     embed.add_field(
-        name="🏆 期間プレイ時間ランキング",
+        name="🏆 プレイ時間ランキング",
         value=(
             f"統計開始: `{data.playtime_started_at.astimezone(JST).strftime('%Y-%m-%d')}`\n"
             f"リセット予定: `{reset_text}`\n{ranking_text}"
