@@ -239,7 +239,7 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         f"**#{item.id} {item.donor}**\n{item.message}"
         for item in data.donations[-5:]
     ]
-    donation_text = "\n\n".join(donation_lines) or "なし"
+    donation_text = "\n".join(donation_lines) or "なし"
     if len(donation_text) > 1024:
         donation_text = "…" + donation_text[-1023:]
     embed.add_field(name="📌 寄付者からのひとこと", value=donation_text, inline=False)
