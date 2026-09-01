@@ -15,6 +15,8 @@ class PlaytimeStore:
         self._items: dict[str, dict] = {}
         self.period_started_at: datetime = self._now()
         self._last_reset_check: str | None = None
+        self._next_reset_expression: str | None = None
+        self._next_reset: datetime | None = None
         self._load()
 
     @staticmethod
@@ -199,6 +201,22 @@ class PlaytimeStore:
         self.reset(now.astimezone(timezone.utc))
         return True
 
+    def next_reset_at(self, cron_expression: str) -> datetime | None:
+        """Return the next reset time using the same local-time cron rules."""
+        expression = cron_expression.strip()
+        if not expression:
+            return None
+        now = datetime.now().astimezone()
+        if (
+            self._next_reset_expression == expression
+            and self._next_reset is not None
+            and self._next_reset > now
+        ):
+            return self._next_reset
+        self._next_reset_expression = expression
+        self._next_reset = _next_cron_minute(expression, now)
+        return self._next_reset
+
     @staticmethod
     def _total(item: dict, now: datetime | None = None) -> int:
         total = int(item.get("total_seconds", 0))
@@ -272,4 +290,19 @@ def _previous_cron_minute(expression: str, now: datetime) -> datetime | None:
         except (TypeError, ValueError):
             return None
         cursor -= timedelta(minutes=1)
+    return None
+
+
+def _next_cron_minute(expression: str, now: datetime) -> datetime | None:
+    if len(expression.split()) != 5:
+        return None
+    cursor = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    # Five years also covers leap-day schedules.
+    for _ in range(5 * 366 * 24 * 60):
+        try:
+            if _cron_matches(expression, cursor):
+                return cursor
+        except (TypeError, ValueError):
+            return None
+        cursor += timedelta(minutes=1)
     return None

@@ -114,6 +114,9 @@ class WidgetManager:
                           kofi_goal=kofi_goal,
                           playtime_ranking=self.playtime.ranking(),
                           playtime_started_at=self.playtime.period_started_at,
+                          playtime_next_reset_at=self.playtime.next_reset_at(
+                              self.settings.playtime_reset_cron
+                          ),
                           backups=backups,
                           cpu_watts=cpu_watts,
                           player_emojis={

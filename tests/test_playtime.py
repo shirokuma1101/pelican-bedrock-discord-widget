@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.playtime import _cron_matches, format_duration
+from app.playtime import _cron_matches, _next_cron_minute, format_duration
 
 
 def test_format_duration_uses_compact_hours_and_minutes():
@@ -40,3 +40,10 @@ def test_cron_step_and_range_fields():
         "*/15 9-17 * * 1-5",
         datetime(2026, 8, 17, 9, 31, tzinfo=timezone.utc),
     )
+
+
+def test_next_monthly_cron_minute():
+    assert _next_cron_minute(
+        "0 0 1 * *",
+        datetime(2026, 9, 1, 0, 0, tzinfo=timezone.utc),
+    ) == datetime(2026, 10, 1, 0, 0, tzinfo=timezone.utc)

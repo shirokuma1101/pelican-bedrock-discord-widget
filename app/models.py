@@ -81,3 +81,4 @@ class WidgetData:
     player_emojis: dict[str, str] = field(default_factory=dict)
     backups: list[Backup] = field(default_factory=list)
     cpu_watts: float | None = None
+    playtime_next_reset_at: datetime | None = None

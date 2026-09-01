@@ -354,7 +354,8 @@ PLAYTIME_RESET_CRON=0 0 1 * *
 ```
 
 Leave it empty to disable automatic resets. The current statistics start date
-is shown in the playtime ranking field of the Embed.
+and the next scheduled reset date/time are shown in the playtime ranking field
+of the Embed.
 
 ## API routes used
 
