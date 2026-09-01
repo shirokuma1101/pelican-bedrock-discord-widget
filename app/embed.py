@@ -118,7 +118,7 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     else:
         ranking_text = "`なし`"
     reset_text = (
-        data.playtime_next_reset_at.astimezone(JST).strftime('%Y-%m-%d %H:%M')
+        data.playtime_next_reset_at.astimezone(JST).strftime('%Y-%m-%d')
         if data.playtime_next_reset_at is not None
         else 'なし'
     )
