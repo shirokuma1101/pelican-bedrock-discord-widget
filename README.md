@@ -357,8 +357,9 @@ PLAYTIME_RESET_CRON=0 0 1 * *
 ```
 
 Leave it empty to disable automatic resets. Cron also resets only the period
-ranking. The current period start date and next scheduled reset date/time are
-shown in the Embed; the lifetime ranking remains permanently accumulated.
+ranking. The Embed shows only the period ranking together with its start date
+and next scheduled reset date/time. The lifetime ranking remains available
+through commands and permanently accumulated.
 
 ## API routes used
 

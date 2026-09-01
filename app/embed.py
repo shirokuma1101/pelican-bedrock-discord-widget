@@ -132,20 +132,8 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         ),
         inline=True,
     )
-    if data.playtime_lifetime_ranking:
-        lifetime_ranking_text = "\n".join(
-            f"`{index}位 {player} — {format_duration(seconds)}`"
-            for index, (player, seconds) in enumerate(
-                data.playtime_lifetime_ranking[:5], 1
-            )
-        )
-    else:
-        lifetime_ranking_text = "`なし`"
-    embed.add_field(
-        name="♾️ 累計プレイ時間ランキング",
-        value=lifetime_ranking_text,
-        inline=True,
-    )
+    # Fill the third inline column so resource fields start on the next row.
+    embed.add_field(name="\u200b", value="\u200b", inline=True)
 
     memory_used_mb = mb(data.resources.memory_bytes)
     disk_used_mb = mb(data.resources.disk_bytes)
