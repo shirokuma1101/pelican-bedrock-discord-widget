@@ -120,15 +120,15 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     reset_text = (
         data.playtime_next_reset_at.astimezone(JST).strftime('%Y-%m-%d %H:%M')
         if data.playtime_next_reset_at is not None
-        else '自動リセットなし'
+        else 'なし'
     )
     embed.add_field(
         name="🏆 プレイ時間ランキング",
         value=(
-            f"統計開始: {data.playtime_started_at.astimezone(JST).strftime('%Y-%m-%d')}\n"
-            f"リセット予定: {reset_text}\n{ranking_text}"
+            f"統計開始: `{data.playtime_started_at.astimezone(JST).strftime('%Y-%m-%d')}`\n"
+            f"リセット予定: `{reset_text}`\n{ranking_text}"
             if data.playtime_started_at is not None
-            else f"リセット予定: {reset_text}\n{ranking_text}"
+            else f"リセット予定: `{reset_text}`\n{ranking_text}"
         ),
         inline=True,
     )
