@@ -7,7 +7,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Pelican Client API server/resource monitoring
 - Vanilla Bedrock UDP status monitoring
 - CPU, memory and disk usage with limits and percentages when available
-- Optional CPU power and estimated monthly electricity cost from VictoriaMetrics
+- Optional electricity and domain maintenance-cost estimates
 - Bedrock online/offline state
 - Bedrock version and player count
 - MOTD in the Embed title
@@ -71,11 +71,12 @@ PRESENCE_ENABLED=true
 PUBLIC_ADDRESS=example.com:19132
 WEBSITE_URL=https://example.com/
 
-# Optional CPU power and monthly electricity-cost estimate
+# Optional maintenance-cost estimate (power metric, electricity, and domain)
 VICTORIA_METRICS_URL=https://metrics.example.com/api/v1/query
 VICTORIA_METRICS_QUERY=ohm_cpu_watts{instance="server",sensor="CPU Package"}
 POWER_AVERAGE_WINDOW=7d
 ELECTRICITY_YEN_PER_KWH=32.6
+DOMAIN_ANNUAL_COST_YEN=0
 HDD_COUNT=1
 HDD_WATTS_EACH=8
 SSD_COUNT=2

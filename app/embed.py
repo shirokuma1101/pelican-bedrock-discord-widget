@@ -166,21 +166,35 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         total_watts = (
             data.cpu_watts + storage_watts + settings.other_hardware_watts
         )
-        monthly_cost = (
+        monthly_electricity_cost = (
             total_watts / 1000
             * 24
             * 30
             * settings.electricity_yen_per_kwh
         )
-        electricity_text = (
+        monthly_total_cost = (
+            monthly_electricity_cost + settings.domain_annual_cost_yen / 12
+        )
+        maintenance_text = (
             f"**PC全体概算**\n"
             f"{total_watts:.1f} W\n"
-            f"**月額概算**\n"
-            f"約{monthly_cost:,.0f}円/月"
+            f"**電気料金（月額概算）**\n"
+            f"約{monthly_electricity_cost:,.0f}円/月\n"
+            f"**ドメイン維持費**\n"
+            f"{settings.domain_annual_cost_yen:,.0f}円/年 "
+            f"（約{settings.domain_annual_cost_yen / 12:,.0f}円/月）\n"
+            f"**合計（月額概算）**\n"
+            f"約{monthly_total_cost:,.0f}円/月"
         )
     else:
-        electricity_text = "**PC全体概算**\nN/A\n**月額概算**\nN/A"
-    embed.add_field(name="⚡ 電気料金", value=electricity_text, inline=True)
+        maintenance_text = (
+            "**PC全体概算**\nN/A\n"
+            "**電気料金（月額概算）**\nN/A\n"
+            f"**ドメイン維持費**\n{settings.domain_annual_cost_yen:,.0f}円/年 "
+            f"（約{settings.domain_annual_cost_yen / 12:,.0f}円/月）\n"
+            "**合計（月額概算）**\nN/A"
+        )
+    embed.add_field(name="💰 維持費", value=maintenance_text, inline=True)
 
     if data.console.logs:
         lines = data.console.logs[-settings.console_log_lines:]

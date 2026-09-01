@@ -72,6 +72,7 @@ class Settings:
     victoria_metrics_query: str
     power_average_window: str
     electricity_yen_per_kwh: float
+    domain_annual_cost_yen: float
     hdd_count: int
     hdd_watts_each: float
     ssd_count: int
@@ -144,6 +145,9 @@ class Settings:
             ),
             electricity_yen_per_kwh=max(
                 0.0, number('ELECTRICITY_YEN_PER_KWH', 32.6)
+            ),
+            domain_annual_cost_yen=max(
+                0.0, number('DOMAIN_ANNUAL_COST_YEN', 0.0)
             ),
             hdd_count=max(0, integer('HDD_COUNT', 1)),
             hdd_watts_each=max(0.0, number('HDD_WATTS_EACH', 8.0)),
