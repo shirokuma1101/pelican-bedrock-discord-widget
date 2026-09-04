@@ -32,6 +32,16 @@ PLAYER_COUNT_ALT_RE = re.compile(
     r"There are\s+(\d+)\s+of\s+a\s+max\s+of\s+(\d+)\s+players?\s+online\s*:?\s*(.*)$",
     re.I,
 )
+TIME_QUERY_RE = re.compile(r"\b(?:the\s+)?time\s+is\s+(\d+)", re.I)
+DAY_RE = re.compile(r"\bday\s*(?:is|:)\s*(\d+)", re.I)
+DAYTIME_RE = re.compile(r"\bdaytime\s*(?:is|:)\s*(\d+)", re.I)
+WEATHER_QUERY_RE = re.compile(
+    r"(?:"
+    r"(?:the\s+)?weather\s+is\s+(?:currently\s+)?"
+    r"|weather\s+state\s+is\s*:\s*"
+    r")(clear|rain|thunder)",
+    re.I,
+)
 
 TIMESTAMP_LINE_RE = re.compile(r"^\[\d{4}-\d{2}-\d{2} .*?\]")
 
@@ -93,6 +103,10 @@ class WingsConsole:
         self._logs: deque[str] = deque(maxlen=self.log_lines or 1)
         self._connected = False
         self._last_error: str | None = None
+        self._time_ticks: int | None = None
+        self._day_count: int | None = None
+        self._pending_time_queries: deque[str] = deque()
+        self._weather: str | None = None
 
         # True only while parsing the continuation lines immediately following
         # "There are N/M players online:".
@@ -126,6 +140,9 @@ class WingsConsole:
                 players=sorted(self._players, key=str.casefold),
                 logs=list(self._logs),
                 last_error=self._last_error,
+                time_ticks=self._time_ticks,
+                day_count=self._day_count,
+                weather=self._weather,
             )
 
     async def _run(self) -> None:
@@ -229,23 +246,33 @@ class WingsConsole:
                 self._connected = True
                 self._last_error = None
                 self._logs.clear()
+                self._pending_time_queries.clear()
 
             log.info("Wings WebSocket connected")
 
+            await self._send_time_query("daytime")
+            await self._send_time_query("day")
+            await self._send_command("weather query")
             if self.player_list_enabled:
                 await self._send_command("list")
                 last_player_command = asyncio.get_running_loop().time()
             else:
                 last_player_command = 0.0
+            last_environment_command = asyncio.get_running_loop().time()
 
             async for raw in ws:
                 await self._handle_message(raw)
 
+                now = asyncio.get_running_loop().time()
                 if self.player_list_enabled:
-                    now = asyncio.get_running_loop().time()
                     if now - last_player_command >= self.player_command_interval:
                         await self._send_command("list")
                         last_player_command = now
+                if now - last_environment_command >= self.player_command_interval:
+                    await self._send_time_query("daytime")
+                    await self._send_time_query("day")
+                    await self._send_command("weather query")
+                    last_environment_command = now
 
             async with self._lock:
                 self._connected = False
@@ -260,6 +287,10 @@ class WingsConsole:
             "event": "send command",
             "args": [command],
         }))
+
+    async def _send_time_query(self, kind: str) -> None:
+        await self._send_command(f"time query {kind}")
+        self._pending_time_queries.append(kind)
 
     async def send_command(self, command: str) -> None:
         """Send a command to the Bedrock server when Wings is connected."""
@@ -307,6 +338,38 @@ class WingsConsole:
         async with self._lock:
             for raw_line in lines:
                 line = raw_line.strip()
+
+                daytime_match = DAYTIME_RE.search(line)
+                day_match = DAY_RE.search(line)
+                time_match = TIME_QUERY_RE.search(line)
+                if daytime_match:
+                    self._time_ticks = int(daytime_match.group(1)) % 24000
+                    if (
+                        self._pending_time_queries
+                        and self._pending_time_queries[0] == "daytime"
+                    ):
+                        self._pending_time_queries.popleft()
+                    continue
+                if day_match:
+                    self._day_count = int(day_match.group(1))
+                    if (
+                        self._pending_time_queries
+                        and self._pending_time_queries[0] == "day"
+                    ):
+                        self._pending_time_queries.popleft()
+                    continue
+                if time_match:
+                    value = int(time_match.group(1))
+                    kind = self._pending_time_queries.popleft() if self._pending_time_queries else None
+                    if kind == "day":
+                        self._day_count = value
+                    elif kind == "daytime":
+                        self._time_ticks = value % 24000
+                    continue
+                weather_match = WEATHER_QUERY_RE.search(line)
+                if weather_match:
+                    self._weather = weather_match.group(1).lower()
+                    continue
 
                 # A new list response always supersedes the previous snapshot.
                 count_match = (

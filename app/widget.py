@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
+import asyncio
+import socket
 
 import discord
 
@@ -19,6 +21,15 @@ from .victoria_metrics import VictoriaMetricsClient
 from .wings_ws import WingsConsole
 
 log = logging.getLogger(__name__)
+
+
+def _resolve_a_records(address: str) -> list[str]:
+    host = address.rsplit(':', 1)[0] if address.count(':') == 1 else address
+    try:
+        results = socket.getaddrinfo(host, None, socket.AF_INET)
+    except OSError:
+        return []
+    return sorted({item[4][0] for item in results})
 
 
 class WidgetManager:
@@ -83,6 +94,10 @@ class WidgetManager:
             bedrock = BedrockStatus()
             errors.append(f'Bedrock: {exc}')
         console = await self.console.snapshot() if self.console else ConsoleSnapshot()
+        address = self.settings.public_address or (
+            f'{self.settings.bedrock_host}:{self.settings.bedrock_port}'
+        )
+        address_a_records = await asyncio.to_thread(_resolve_a_records, address)
         kofi_goal = None
         if (
             self.settings.ko_fi_goal_title
@@ -119,6 +134,7 @@ class WidgetManager:
                           ),
                           backups=backups,
                           cpu_watts=cpu_watts,
+                          address_a_records=address_a_records,
                           player_emojis={
                               item.player.casefold(): item.emoji
                               for item in self.player_emojis.all()

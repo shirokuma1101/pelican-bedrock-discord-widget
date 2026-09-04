@@ -40,6 +40,9 @@ class ConsoleSnapshot:
     players: list[str] = field(default_factory=list)
     logs: list[str] = field(default_factory=list)
     last_error: str | None = None
+    time_ticks: int | None = None
+    day_count: int | None = None
+    weather: str | None = None
 
 
 @dataclass
@@ -82,3 +85,4 @@ class WidgetData:
     backups: list[Backup] = field(default_factory=list)
     cpu_watts: float | None = None
     playtime_next_reset_at: datetime | None = None
+    address_a_records: list[str] = field(default_factory=list)

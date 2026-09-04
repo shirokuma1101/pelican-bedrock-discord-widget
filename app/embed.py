@@ -25,6 +25,17 @@ def resource_percentage(label: str, used: float | None, limit: float | None) -> 
     return f"`{label} {progress_bar(percentage)} {percentage:.2f}%`"
 
 
+def format_minecraft_time(ticks: int | None) -> str:
+    if ticks is None:
+        return "N/A"
+    minutes = ((ticks + 6000) % 24000) * 1440 // 24000
+    return f"{minutes // 60:02}:{minutes % 60:02}"
+
+
+def weather_emoji(weather: str | None) -> str:
+    return {"clear": "☀️", "rain": "🌧️", "thunder": "⛈️"}.get(weather or "", "❔")
+
+
 def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     if data.bedrock.online:
         state, colour = "🟢 ONLINE", discord.Colour.green()
@@ -34,7 +45,7 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         state, colour = "🔴 OFFLINE", discord.Colour.red()
 
     motd = (data.bedrock.motd or "").strip()
-    title = f"🖥️ {data.server.name}"
+    title = f"{state}｜🖥️ {data.server.name}"
     if motd:
         title += f"｜{motd}"
 
@@ -44,7 +55,7 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     )
     if settings.website_url:
         embed.set_author(
-            name="PostMineClan 公式サイト",
+            name=">> PostMineClan 公式サイト <<",
             url=settings.website_url,
         )
     else:
@@ -53,23 +64,14 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
             url="https://github.com/shirokuma1101/pelican-bedrock-discord-widget",
         )
     address = settings.public_address or f"{settings.bedrock_host}:{settings.bedrock_port}"
-
-    connection_state = "🟢 接続" if data.bedrock.online else "🔴 未接続"
-    embed.add_field(
-        name="接続状態",
-        value=f"`{connection_state}`",
-        inline=True,
-    )
-    embed.add_field(
-        name="アドレス",
-        value=f"`{address}`",
-        inline=True,
-    )
-    embed.add_field(
-        name="Version",
-        value=f"`{data.bedrock.version or 'N/A'}`",
-        inline=True,
-    )
+    if address.count(":") == 1:
+        address_host, address_port = address.rsplit(":", 1)
+    else:
+        address_host, address_port = address, str(settings.bedrock_port)
+    alt_addresses = ", ".join(data.address_a_records) or "N/A"
+    embed.add_field(name="アドレス", value=f"`{address_host}`", inline=True)
+    embed.add_field(name="代替アドレス", value=f"`{alt_addresses}`", inline=True)
+    embed.add_field(name="ポート", value=f"`{address_port}`", inline=True)
 
     if data.bedrock.online:
         console_count = (
@@ -105,11 +107,10 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         player_text = "`サーバーOFFLINE`"
 
     embed.add_field(
-        name="プレイヤー",
+        name="👤 プレイヤー",
         value=player_text,
         inline=True,
     )
-
     if data.playtime_ranking:
         ranking_text = "\n".join(
             f"`{index}位 {player} — {format_duration(seconds)}`"
@@ -126,15 +127,22 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
         name="🏆 プレイ時間ランキング",
         value=(
             f"統計開始: `{data.playtime_started_at.astimezone(JST).strftime('%Y-%m-%d')}`\n"
-            f"リセット予定: `{reset_text}`\n{ranking_text}"
+            f"次回 Reset: `{reset_text}`\n{ranking_text}"
             if data.playtime_started_at is not None
-            else f"リセット予定: `{reset_text}`\n{ranking_text}"
+            else f"次回 Reset: `{reset_text}`\n{ranking_text}"
         ),
         inline=True,
     )
-    # Fill the third inline column so resource fields start on the next row.
-    embed.add_field(name="\u200b", value="\u200b", inline=True)
-
+    embed.add_field(
+        name="🌍 ワールド",
+        value=(
+            f"Version: `{data.bedrock.version or 'N/A'}`\n"
+            f"経過: `{data.console.day_count if data.console.day_count is not None else 'N/A'}日目`\n"
+            f"時刻: `{format_minecraft_time(data.console.time_ticks)}`\n"
+            f"天候: {weather_emoji(data.console.weather)}"
+        ),
+        inline=True,
+    )
     memory_used_mb = mb(data.resources.memory_bytes)
     disk_used_mb = mb(data.resources.disk_bytes)
     resources_text = "\n".join((
