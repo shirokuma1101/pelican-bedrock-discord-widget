@@ -32,3 +32,16 @@ def test_user_can_disable_memory(tmp_path) -> None:
     assert database.memory_enabled(10)
     database.set_memory_enabled(10, False)
     assert not database.memory_enabled(10)
+
+
+def test_database_persists_ai_consent_choices(tmp_path) -> None:
+    database = ChatDatabase(str(tmp_path / 'chat.sqlite3'))
+    database.initialize()
+    database.upsert_user(10, 'Player')
+
+    assert database.consent_status(10) == (None, None)
+    database.set_consent(10, True, False)
+    assert database.consent_status(10) == (True, False)
+
+    database.set_consent(10, False, False)
+    assert database.consent_status(10) == (False, False)

@@ -80,6 +80,7 @@ class Settings:
     other_hardware_watts: float
     llm_enabled: bool
     llm_base_url: str
+    deepseek_api_key: str
     llm_model: str
     llm_allowed_channel_id: int | None
     llm_system_prompt: str
@@ -88,6 +89,9 @@ class Settings:
     llm_max_concurrent_requests: int
     llm_max_tokens: int
     llm_database_file: str
+    llm_terms_text: str
+    llm_history_learn_messages: int
+    llm_history_scan_limit: int
     public_address: str
     console_enabled: bool
     console_log_lines: int
@@ -161,8 +165,15 @@ class Settings:
                 0.0, number('OTHER_HARDWARE_WATTS', 30.0)
             ),
             llm_enabled=boolean_with_legacy('LLM_ENABLED', 'LLAMA_ENABLED', False),
-            llm_base_url=env_with_legacy('LLM_BASE_URL', 'LLAMA_BASE_URL').rstrip('/'),
-            llm_model=env_with_legacy('LLM_MODEL', 'LLAMA_MODEL'),
+            llm_base_url=(
+                env_with_legacy(
+                    'LLM_BASE_URL', 'LLAMA_BASE_URL', 'https://api.deepseek.com'
+                ).rstrip('/')
+            ),
+            deepseek_api_key=os.getenv('DEEPSEEK_API_KEY', '').strip(),
+            llm_model=env_with_legacy(
+                'LLM_MODEL', 'LLAMA_MODEL', 'deepseek-v4-flash'
+            ),
             llm_allowed_channel_id=int(llm_channel) if llm_channel else None,
             llm_system_prompt=env_with_legacy(
                 'LLM_SYSTEM_PROMPT', 'LLAMA_SYSTEM_PROMPT',
@@ -174,6 +185,16 @@ class Settings:
             llm_max_tokens=max(32, integer_with_legacy('LLM_MAX_TOKENS', 'LLAMA_MAX_TOKENS', 512)),
             llm_database_file=(
                 os.getenv('LLM_DATABASE_FILE', '').strip() or 'data/llm_chat.sqlite3'
+            ),
+            llm_terms_text=(
+                os.getenv('LLM_TERMS_TEXT', '').strip()
+                or 'AIの回答には誤りが含まれる場合があります。個人情報・機密情報を送信しないでください。入力内容と、許可した場合は過去の発言がDeepSeek APIへ送信され、会話履歴・長期記憶・同意設定がBotのデータベースに保存されます。AIの回答は重要な判断の根拠にしないでください。'
+            ),
+            llm_history_learn_messages=min(
+                100, max(1, integer('LLM_HISTORY_LEARN_MESSAGES', 30))
+            ),
+            llm_history_scan_limit=min(
+                5000, max(1, integer('LLM_HISTORY_SCAN_LIMIT', 500))
             ),
             public_address=os.getenv('PUBLIC_ADDRESS', '').strip(),
             console_enabled=boolean('CONSOLE_ENABLED', True),

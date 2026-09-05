@@ -18,7 +18,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Administrator-managed donor message board
 - Discord messages forwarded to Minecraft with the Bedrock `say` command
 - Bot presence showing the current Minecraft player count
-- Optional mention-triggered AI chat threads backed by a LAN llama.cpp server
+- Optional mention-triggered AI chat threads backed by the DeepSeek API
 - Optional Start / Restart / Stop buttons
 - Slash command or widget reaction-created temporary VC + listener text-channel pairs
 - One Discord message that is edited every N seconds
@@ -83,10 +83,11 @@ SSD_COUNT=2
 SSD_WATTS_EACH=3
 OTHER_HARDWARE_WATTS=30
 
-# Optional LAN llama.cpp chat
+# Optional DeepSeek API chat
 LLM_ENABLED=false
-LLM_BASE_URL=http://192.168.1.50:8080/v1
-LLM_MODEL=
+DEEPSEEK_API_KEY=
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-v4-flash
 LLM_ALLOWED_CHANNEL_ID=123456789012345678
 LLM_SYSTEM_PROMPT=You are a friendly community chat bot.
 LLM_TIMEOUT_SECONDS=120
@@ -94,6 +95,9 @@ LLM_MAX_HISTORY_MESSAGES=20
 LLM_MAX_CONCURRENT_REQUESTS=1
 LLM_MAX_TOKENS=512
 LLM_DATABASE_FILE=data/llm_chat.sqlite3
+LLM_TERMS_TEXT=AIの回答には誤りが含まれる場合があります。個人情報・機密情報を送信しないでください。入力内容と、許可した場合は過去の発言がDeepSeek APIへ送信されます。
+LLM_HISTORY_LEARN_MESSAGES=30
+LLM_HISTORY_SCAN_LIMIT=500
 
 KO_FI_URL=https://ko-fi.com/yourname
 KO_FI_GOAL_TITLE=サポート目標
@@ -193,15 +197,31 @@ The bot needs at least:
 The optional AI chat feature also needs **Create Public Threads** and
 **Send Messages in Threads**.
 
-## LAN llama.cpp AI chat
+## DeepSeek API AI chat
 
 Set `LLM_ENABLED=true` and mention the bot in `LLM_ALLOWED_CHANNEL_ID` to
 create a public AI chat thread. Messages posted in that thread are sent to the
-OpenAI-compatible endpoint at `/v1/chat/completions`. Replying to a bot message
+DeepSeek's OpenAI-compatible Chat Completions endpoint. Replying to a bot message
 in the configured channel also starts a thread. Threads, messages, user settings,
 and long-term memories are stored in SQLite at `LLM_DATABASE_FILE`, so existing
 AI threads continue to work after a bot restart. Up to
 `LLM_MAX_HISTORY_MESSAGES` recent messages are sent with each request.
+
+On a user's first AI chat attempt, the bot displays the configured terms and
+requires an explicit choice. The user can accept with or without allowing past
+messages to be used. If allowed, the bot searches up to
+`LLM_HISTORY_SCAN_LIMIT` messages in the AI channel, selects up to
+`LLM_HISTORY_LEARN_MESSAGES` messages written by that user, sends those messages
+to DeepSeek once, and stores one generated profile summary as long-term memory.
+The original historical messages are not copied into the database. The user can
+remove the generated summary with `/ai_forget`, just like other memories.
+
+Customize the displayed terms with `LLM_TERMS_TEXT`. This project includes only
+a starter notice, not legal advice; the server operator is responsible for
+reviewing it for their community and applicable rules. Reading historical
+content requires Discord's **Read Message History** permission and Message
+Content Intent. If history retrieval or summarization fails, consent is retained
+and normal AI chat still starts without the profile.
 
 The bot registers these AI commands when the feature is enabled:
 
@@ -219,15 +239,11 @@ lists or adds the invoking user's long-term memories and can enable or disable
 their use. `/ai_forget` deletes one memory; omitting `memory_id` deletes all memories
 for that user. These responses are private except for `/ai_reset`.
 
-Run llama.cpp so the Pelican container can reach it over the LAN, for example:
-
-```bash
-llama-server -m /path/to/model.gguf --host 0.0.0.0 --port 8080 -c 8192 -np 2
-```
-
-Use the LLM host's LAN address in `LLM_BASE_URL`, not `localhost`, when
-the bot runs in a separate container. Do not expose the llama.cpp port to the
-Internet; restrict it to trusted LAN hosts with a firewall.
+Create a DeepSeek API key and set it in `DEEPSEEK_API_KEY`. Keep the key only in
+the runtime environment; do not commit it to the repository. `LLM_BASE_URL`
+defaults to `https://api.deepseek.com`, and `LLM_MODEL` selects the DeepSeek
+model. Model names can change over time, so check the official DeepSeek API
+documentation when changing this setting.
 
 The optional dynamic voice feature also needs **Manage Channels**, **Connect**,
 and **Manage Messages**. Manage Messages lets the bot remove a user's `🔊`

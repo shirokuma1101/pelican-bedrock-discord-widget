@@ -67,6 +67,18 @@ class ChatDatabase:
                 CREATE INDEX IF NOT EXISTS memories_user_id_id ON memories(user_id, id);
                 '''
             )
+            columns = {
+                str(row['name'])
+                for row in connection.execute('PRAGMA table_info(users)').fetchall()
+            }
+            if 'terms_accepted' not in columns:
+                connection.execute('ALTER TABLE users ADD COLUMN terms_accepted INTEGER')
+            if 'history_consent' not in columns:
+                connection.execute('ALTER TABLE users ADD COLUMN history_consent INTEGER')
+            if 'consent_updated_at' not in columns:
+                connection.execute('ALTER TABLE users ADD COLUMN consent_updated_at TEXT')
+            if 'history_learned_at' not in columns:
+                connection.execute('ALTER TABLE users ADD COLUMN history_learned_at TEXT')
 
     def upsert_user(self, user_id: int, display_name: str) -> None:
         now = utc_now()
@@ -138,6 +150,41 @@ class ChatDatabase:
             connection.execute(
                 'UPDATE users SET memory_enabled = ?, updated_at = ? WHERE discord_user_id = ?',
                 (int(enabled), utc_now(), user_id),
+            )
+
+    def consent_status(self, user_id: int) -> tuple[bool | None, bool | None]:
+        with self._connect() as connection:
+            row = connection.execute(
+                'SELECT terms_accepted, history_consent FROM users WHERE discord_user_id = ?',
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            return None, None
+        terms = row['terms_accepted']
+        history = row['history_consent']
+        return (
+            None if terms is None else bool(terms),
+            None if history is None else bool(history),
+        )
+
+    def set_consent(self, user_id: int, terms_accepted: bool,
+                    history_consent: bool) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                '''UPDATE users SET terms_accepted = ?, history_consent = ?,
+                   consent_updated_at = ?, updated_at = ?
+                   WHERE discord_user_id = ?''',
+                (
+                    int(terms_accepted), int(history_consent), utc_now(), utc_now(),
+                    user_id,
+                ),
+            )
+
+    def mark_history_learned(self, user_id: int) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                'UPDATE users SET history_learned_at = ?, updated_at = ? WHERE discord_user_id = ?',
+                (utc_now(), utc_now(), user_id),
             )
 
     def add_memory(self, user_id: int, content: str) -> int:
