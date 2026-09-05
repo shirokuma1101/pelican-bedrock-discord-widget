@@ -40,6 +40,12 @@ def replace_minecraft_emojis(content: str) -> str:
     )
 
 
+def sanitize_minecraft_text(content: str) -> str:
+    content = ' '.join(content.split())
+    content = discord.utils.escape_mentions(content)
+    return MINECRAFT_SELECTOR_RE.sub(r'＠\1', content)
+
+
 def presence_text(data: WidgetData) -> str:
     if data.resources.current_state.lower() in {'offline', 'stopping'}:
         return 'Minecraft｜サーバーOFFLINE'
@@ -694,6 +700,33 @@ class WidgetBot(discord.Client):
         if self.dynamic_voice is not None and member.guild.id == self.settings.discord_guild_id:
             await self.dynamic_voice.check_once()
 
+        target_id = self.settings.minecraft_voice_channel_id
+        if (
+            target_id is None
+            or member.guild.id != self.settings.discord_guild_id
+            or member.bot
+        ):
+            return
+
+        before_id = before.channel.id if before.channel is not None else None
+        after_id = after.channel.id if after.channel is not None else None
+        if before_id != target_id and after_id == target_id:
+            action = 'VCに参加しました'
+        elif before_id == target_id and after_id != target_id:
+            action = 'VCから退出しました'
+        else:
+            return
+
+        if self.console is None:
+            log.warning('Cannot forward VC update: console is disabled')
+            return
+
+        member_name = sanitize_minecraft_text(member.display_name)
+        try:
+            await self.console.send_command(f'say {member_name}が{action}'[:240])
+        except Exception:
+            log.exception('Failed to forward VC update to Bedrock')
+
     async def on_ready(self) -> None:
         log.info('Discord login: %s', self.user)
         if self.dynamic_voice is not None:
@@ -729,14 +762,10 @@ class WidgetBot(discord.Client):
         content = ' '.join(message.content.split())
         if not content:
             return
-        content = discord.utils.escape_mentions(content)
+        content = sanitize_minecraft_text(content)
         content = replace_minecraft_emojis(content)
-        # Prevent Bedrock target selectors such as @a and @r from being
-        # interpreted if a message is later extended or reused in a command.
-        content = MINECRAFT_SELECTOR_RE.sub(r'＠\1', content)
-        author = discord.utils.escape_mentions(message.author.display_name)
-        author = MINECRAFT_SELECTOR_RE.sub(r'＠\1', author)
-        channel_name = discord.utils.escape_mentions(message.channel.name)
+        author = sanitize_minecraft_text(message.author.display_name)
+        channel_name = sanitize_minecraft_text(message.channel.name)
         text = f'(#{channel_name}) <{author}> {content}'[:240]
         try:
             await self.console.send_command(f'say {text}')

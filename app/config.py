@@ -111,12 +111,16 @@ class Settings:
     dynamic_voice_file: str
     dynamic_voice_reactions_file: str
     log_level: str
+    minecraft_voice_channel_id: int | None = None
 
     @classmethod
     def from_env(cls) -> 'Settings':
         load_dotenv()
         message = os.getenv('DISCORD_MESSAGE_ID', '').strip()
         voice_category = os.getenv('DYNAMIC_VOICE_CATEGORY_ID', '').strip()
+        minecraft_voice_channel = os.getenv(
+            'MINECRAFT_NOTIFY_VOICE_CHANNEL_ID', ''
+        ).strip()
         llm_channel = env_with_legacy('LLM_ALLOWED_CHANNEL_ID', 'LLAMA_ALLOWED_CHANNEL_ID')
         return cls(
             discord_token=required('DISCORD_TOKEN'),
@@ -198,4 +202,7 @@ class Settings:
                 'DYNAMIC_VOICE_REACTIONS_FILE', 'data/dynamic_voice_reactions.json'
             ).strip(),
             log_level=os.getenv('LOG_LEVEL', 'INFO'),
+            minecraft_voice_channel_id=(
+                int(minecraft_voice_channel) if minecraft_voice_channel else None
+            ),
         )

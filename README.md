@@ -115,6 +115,7 @@ DYNAMIC_VOICE_EMPTY_MINUTES=10
 DYNAMIC_VOICE_DEFAULT_LIMIT=0
 DYNAMIC_VOICE_FILE=data/dynamic_voice.json
 DYNAMIC_VOICE_REACTIONS_FILE=data/dynamic_voice_reactions.json
+MINECRAFT_NOTIFY_VOICE_CHANNEL_ID=123456789012345678
 ```
 
 The bot creates the widget message automatically if `DISCORD_MESSAGE_ID` is empty.
@@ -259,6 +260,13 @@ The listener text channel contains an expiration status message. Discord's
 relative timestamp automatically displays the remaining time without repeated
 API updates. It changes to a timer-stopped message while the VC is occupied and
 starts a new countdown when the VC becomes empty again.
+
+Set `MINECRAFT_NOTIFY_VOICE_CHANNEL_ID` to a Discord voice-channel ID to send
+join and leave notices to Minecraft chat through the Wings console. Moving into
+or out of that channel is also treated as a join or leave. Bot users and
+voice-state-only changes such as mute/deafen are ignored. Minecraft target
+selectors in Discord display names, such as `@a` and `@e`, are neutralized
+before the `say` command is sent.
 
 Administrators and members with a role in `CONTROL_ROLE_IDS` can associate
 additional Unicode or custom emoji reactions with fixed channel names:
