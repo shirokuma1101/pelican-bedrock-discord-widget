@@ -8,6 +8,7 @@ import socket
 import discord
 
 from .bedrock import BedrockClient
+from .announcements import AnnouncementStore
 from .config import Settings
 from .donations import DonationStore
 from .playtime import PlaytimeStore
@@ -37,6 +38,7 @@ class WidgetManager:
                  pelican: PelicanClient, bedrock: BedrockClient,
                  console: WingsConsole | None,
                  donations: DonationStore,
+                 announcements: AnnouncementStore,
                  playtime: PlaytimeStore,
                  player_emojis: PlayerEmojiStore,
                  victoria_metrics: VictoriaMetricsClient | None = None) -> None:
@@ -46,6 +48,7 @@ class WidgetManager:
         self.bedrock = bedrock
         self.console = console
         self.donations = donations
+        self.announcements = announcements
         self.playtime = playtime
         self.player_emojis = player_emojis
         self.victoria_metrics = victoria_metrics
@@ -126,6 +129,7 @@ class WidgetManager:
                           console=console, last_updated=datetime.now(JST),
                           errors=errors,
                           donations=self.donations.all(),
+                          announcements=self.announcements.active(),
                           kofi_goal=kofi_goal,
                           playtime_ranking=self.playtime.ranking(),
                           playtime_started_at=self.playtime.period_started_at,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import discord
 
 from .config import Settings
@@ -72,6 +74,26 @@ def make_embed(data: WidgetData, settings: Settings) -> discord.Embed:
     embed.add_field(name="アドレス", value=f"`{address_host}`", inline=True)
     embed.add_field(name="代替アドレス", value=f"`{alt_addresses}`", inline=True)
     embed.add_field(name="ポート", value=f"`{address_port}`", inline=True)
+
+    if data.announcements:
+        announcement_lines = []
+        for item in data.announcements[-3:]:
+            expiration = ''
+            if item.expires_at:
+                try:
+                    expires_at = datetime.fromisoformat(item.expires_at).astimezone(JST)
+                    expiration = f"\n掲載終了: `{expires_at.strftime('%Y-%m-%d %H:%M')}`"
+                except ValueError:
+                    pass
+            announcement_lines.append(
+                f"**#{item.id} {item.title}**\n{item.message}{expiration}"
+            )
+        announcements_text = "\n\n".join(announcement_lines)
+        if len(announcements_text) > 1024:
+            announcements_text = announcements_text[:1021] + '…'
+        embed.add_field(
+            name="📢 お知らせ", value=announcements_text, inline=False,
+        )
 
     if data.bedrock.online:
         console_count = (

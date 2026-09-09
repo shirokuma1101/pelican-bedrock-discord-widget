@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from datetime import datetime, timezone
 
 import aiohttp
 import discord
 from discord import app_commands
 
 from .ai_chat import LLMChatManager
+from .announcements import AnnouncementStore
 from .bedrock import BedrockClient
 from .config import Settings
 from .donations import DonationStore
@@ -17,6 +19,7 @@ from .models import WidgetData
 from .pelican import PelicanClient
 from .playtime import PlaytimeStore, format_duration
 from .player_emojis import PlayerEmojiStore
+from .timezones import JST
 from .widget import WidgetManager
 from .victoria_metrics import VictoriaMetricsClient
 from .wings_ws import WingsConsole
@@ -77,6 +80,7 @@ class WidgetBot(discord.Client):
         self.console: WingsConsole | None = None
         self.widget: WidgetManager | None = None
         self.donations: DonationStore | None = None
+        self.announcements: AnnouncementStore | None = None
         self.playtime: PlaytimeStore | None = None
         self.player_emojis: PlayerEmojiStore | None = None
         self.tree = app_commands.CommandTree(self)
@@ -126,9 +130,11 @@ class WidgetBot(discord.Client):
         if not isinstance(channel, discord.TextChannel):
             raise RuntimeError('DISCORD_CHANNEL_ID is not a text channel')
         self.donations = DonationStore(self.settings.donations_file)
+        self.announcements = AnnouncementStore(self.settings.announcements_file)
         self.widget = WidgetManager(
             self.settings, channel, self.pelican, bedrock, self.console,
-            self.donations, self.playtime, self.player_emojis, victoria_metrics,
+            self.donations, self.announcements, self.playtime,
+            self.player_emojis, victoria_metrics,
         )
         await self.widget.initialize()
         if self.settings.dynamic_voice_category_id is not None:
@@ -173,6 +179,22 @@ class WidgetBot(discord.Client):
             app_commands.Command(
                 name="donation_clear", description="寄付者からのひとことを全削除します",
                 callback=self._donation_clear_command,
+            ),
+            app_commands.Command(
+                name="announcement_add", description="お知らせを登録して通知します",
+                callback=self._announcement_add_command,
+            ),
+            app_commands.Command(
+                name="announcement_remove", description="お知らせを削除します",
+                callback=self._announcement_remove_command,
+            ),
+            app_commands.Command(
+                name="announcement_list", description="お知らせ一覧を表示します",
+                callback=self._announcement_list_command,
+            ),
+            app_commands.Command(
+                name="announcement_clear", description="お知らせを全削除します",
+                callback=self._announcement_clear_command,
             ),
         )
         for command in commands:
@@ -294,7 +316,7 @@ class WidgetBot(discord.Client):
                 '• サーバー状態・接続人数・リソース使用量の表示\n'
                 '• プレイ時間ランキングの記録\n'
                 '• DiscordメッセージのMinecraftへの転送\n'
-                '• 寄付者メッセージの掲示'
+                '• お知らせ・寄付者メッセージの掲示'
             ),
             inline=False,
         )
@@ -330,6 +352,7 @@ class WidgetBot(discord.Client):
                 inline=False,
             )
         admin_commands = (
+            '`/announcement_add` `/announcement_remove` `/announcement_list` `/announcement_clear`\n'
             '`/donation_add` `/donation_remove` `/donation_list` `/donation_clear`\n'
             '`/playtime_reset`\n'
             '`/player_emoji_add` `/player_emoji_remove` `/player_emoji_list`'
@@ -365,6 +388,149 @@ class WidgetBot(discord.Client):
             return
         item = self.donations.add(donor, message)
         await interaction.response.send_message(f"寄付者からのひとこと #{item.id} を追加しました。", ephemeral=True)
+
+    @app_commands.describe(
+        title='お知らせのタイトル',
+        message='お知らせの本文（\\nで改行）',
+        expires_at='終了日時（日本時間の YYYY-MM-DD HH:MM、省略可）',
+        notify='メンション通知する場合はTrue（省略時はFalse）',
+    )
+    async def _announcement_add_command(
+        self,
+        interaction: discord.Interaction,
+        title: str,
+        message: str,
+        expires_at: str | None = None,
+        notify: bool = False,
+    ) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        assert self.announcements is not None
+        title = title.strip()
+        message = message.replace('\\n', '\n').strip()
+        if not title or len(title) > 100 or not message or len(message) > 1000:
+            await interaction.response.send_message(
+                'タイトルは100文字以内、本文は1000文字以内で入力してください。',
+                ephemeral=True,
+            )
+            return
+        expiration: datetime | None = None
+        if expires_at and expires_at.strip():
+            try:
+                expiration = datetime.strptime(
+                    expires_at.strip(), '%Y-%m-%d %H:%M'
+                ).replace(tzinfo=JST)
+            except ValueError:
+                await interaction.response.send_message(
+                    '終了日時は `YYYY-MM-DD HH:MM` 形式の日本時間で入力してください。',
+                    ephemeral=True,
+                )
+                return
+            if expiration <= datetime.now(JST):
+                await interaction.response.send_message(
+                    '終了日時には現在より後の日時を指定してください。', ephemeral=True,
+                )
+                return
+
+        item = self.announcements.add(title, message, expiration)
+        await interaction.response.defer(ephemeral=True)
+        notification_error: str | None = None
+        if self.settings.announcement_channel_id is None:
+            notification_error = 'ANNOUNCEMENT_CHANNEL_ID が未設定です。'
+        else:
+            try:
+                channel = self.get_channel(self.settings.announcement_channel_id)
+                if channel is None:
+                    channel = await self.fetch_channel(self.settings.announcement_channel_id)
+                if not isinstance(channel, discord.TextChannel):
+                    raise TypeError('announcement target is not a text channel')
+                if not notify:
+                    mention = None
+                    allowed_mentions = discord.AllowedMentions.none()
+                elif self.settings.announcement_mention_role_id is None:
+                    mention = '@everyone'
+                    allowed_mentions = discord.AllowedMentions(
+                        everyone=True, roles=False, users=False,
+                    )
+                else:
+                    role = channel.guild.get_role(
+                        self.settings.announcement_mention_role_id
+                    )
+                    if role is None:
+                        raise ValueError('announcement mention role was not found')
+                    mention = role.mention
+                    allowed_mentions = discord.AllowedMentions(
+                        everyone=False, roles=[role], users=False,
+                    )
+                notice = discord.Embed(
+                    title=f'📢 {item.title}',
+                    description=item.message,
+                    colour=discord.Colour.blurple(),
+                    timestamp=datetime.now(timezone.utc),
+                )
+                if expiration is not None:
+                    notice.set_footer(
+                        text=f'掲載終了: {expiration.strftime("%Y-%m-%d %H:%M")} JST'
+                    )
+                await channel.send(content=mention, embed=notice, allowed_mentions=allowed_mentions)
+            except Exception as exc:
+                log.exception('Announcement notification failed')
+                notification_error = str(exc)
+        response = f'お知らせ #{item.id} を登録しました。'
+        if notification_error:
+            response += f' 固定Embedには表示されますが、通知に失敗しました: `{notification_error}`'
+        else:
+            response += ' お知らせチャンネルへ投稿しました。'
+            if notify:
+                response += ' メンション通知も送信しました。'
+        await interaction.followup.send(response, ephemeral=True)
+
+    async def _announcement_remove_command(
+        self, interaction: discord.Interaction, item_id: int,
+    ) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        assert self.announcements is not None
+        removed = self.announcements.remove(item_id)
+        await interaction.response.send_message(
+            '削除しました。' if removed else 'そのIDは見つかりません。',
+            ephemeral=True,
+        )
+
+    async def _announcement_list_command(self, interaction: discord.Interaction) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        assert self.announcements is not None
+        now = datetime.now(timezone.utc)
+        rows: list[str] = []
+        for item in self.announcements.all():
+            expiration_text = '期限なし'
+            expired = False
+            if item.expires_at:
+                try:
+                    expiration = datetime.fromisoformat(item.expires_at)
+                    expiration_text = expiration.astimezone(JST).strftime('%Y-%m-%d %H:%M')
+                    expired = expiration <= now
+                except ValueError:
+                    expiration_text = '無効な期限'
+                    expired = True
+            status = '期限切れ' if expired else '掲載中'
+            rows.append(
+                f'#{item.id} [{status}] **{item.title}** — {expiration_text}\n{item.message}'
+            )
+        await interaction.response.send_message(
+            ('\n\n'.join(rows)[:1900] if rows else 'お知らせは登録されていません。'),
+            ephemeral=True,
+        )
+
+    async def _announcement_clear_command(self, interaction: discord.Interaction) -> None:
+        if await self._deny_donation_command(interaction):
+            return
+        assert self.announcements is not None
+        count = self.announcements.clear()
+        await interaction.response.send_message(
+            f'{count}件のお知らせを削除しました。', ephemeral=True,
+        )
 
     async def _playtime_command(self, interaction: discord.Interaction, player: str) -> None:
         assert self.playtime is not None

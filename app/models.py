@@ -54,6 +54,15 @@ class DonationMessage:
 
 
 @dataclass
+class Announcement:
+    id: int
+    title: str
+    message: str
+    created_at: str
+    expires_at: str | None = None
+
+
+@dataclass
 class KoFiGoal:
     title: str
     percentage: str
@@ -78,6 +87,7 @@ class WidgetData:
     last_updated: datetime
     errors: list[str]
     donations: list[DonationMessage] = field(default_factory=list)
+    announcements: list[Announcement] = field(default_factory=list)
     kofi_goal: KoFiGoal | None = None
     playtime_ranking: list[tuple[str, int]] = field(default_factory=list)
     playtime_started_at: datetime | None = None

@@ -105,6 +105,9 @@ class Settings:
     ko_fi_goal_current: str
     ko_fi_goal_target: str
     donations_file: str
+    announcements_file: str
+    announcement_channel_id: int | None
+    announcement_mention_role_id: int | None
     playtime_file: str
     playtime_reset_cron: str
     enable_control_buttons: bool
@@ -122,6 +125,8 @@ class Settings:
         load_dotenv()
         message = os.getenv('DISCORD_MESSAGE_ID', '').strip()
         voice_category = os.getenv('DYNAMIC_VOICE_CATEGORY_ID', '').strip()
+        announcement_channel = os.getenv('ANNOUNCEMENT_CHANNEL_ID', '').strip()
+        announcement_role = os.getenv('ANNOUNCEMENT_MENTION_ROLE_ID', '').strip()
         minecraft_voice_channel = os.getenv(
             'MINECRAFT_NOTIFY_VOICE_CHANNEL_ID', ''
         ).strip()
@@ -211,6 +216,15 @@ class Settings:
             ko_fi_goal_current=os.getenv('KO_FI_GOAL_CURRENT', '').strip(),
             ko_fi_goal_target=os.getenv('KO_FI_GOAL_TARGET', '').strip(),
             donations_file=os.getenv('DONATIONS_FILE', 'data/donations.json').strip(),
+            announcements_file=os.getenv(
+                'ANNOUNCEMENTS_FILE', 'data/announcements.json'
+            ).strip(),
+            announcement_channel_id=(
+                int(announcement_channel) if announcement_channel else None
+            ),
+            announcement_mention_role_id=(
+                int(announcement_role) if announcement_role else None
+            ),
             playtime_file=os.getenv('PLAYTIME_FILE', 'data/playtime.json').strip(),
             playtime_reset_cron=os.getenv('PLAYTIME_RESET_CRON', '').strip(),
             enable_control_buttons=boolean('ENABLE_CONTROL_BUTTONS', False),

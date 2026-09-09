@@ -16,6 +16,7 @@ A Discord bot that maintains one live-updating Embed for a Pelican-managed Vanil
 - Server console logs (latest five lines, excluding `list` output)
 - Ko-fi support link
 - Administrator-managed donor message board
+- Administrator-managed announcements with channel mention notifications
 - Discord messages forwarded to Minecraft with the Bedrock `say` command
 - Bot presence showing the current Minecraft player count
 - Optional mention-triggered AI chat threads backed by the DeepSeek API
@@ -105,6 +106,10 @@ KO_FI_GOAL_PERCENTAGE=0
 KO_FI_GOAL_CURRENT=¥0
 KO_FI_GOAL_TARGET=¥0
 DONATIONS_FILE=data/donations.json
+ANNOUNCEMENTS_FILE=data/announcements.json
+ANNOUNCEMENT_CHANNEL_ID=123456789012345678
+# Optional; with notify:true, empty sends @everyone
+ANNOUNCEMENT_MENTION_ROLE_ID=
 
 CONSOLE_ENABLED=true
 CONSOLE_LOG_LINES=5
@@ -337,6 +342,34 @@ CONTROL_ROLE_IDS=123456789012345678,987654321098765432
 ```
 
 Only members having one of those Discord roles can use the buttons.
+
+## Announcements
+
+Administrators and members with a role listed in `CONTROL_ROLE_IDS` can manage
+announcements. Active announcements are persisted in
+`ANNOUNCEMENTS_FILE` and the latest three are shown in the fixed widget Embed.
+
+```text
+/announcement_add title:タイトル message:本文
+/announcement_add title:イベント message:本文 expires_at:2026-09-30 20:00 notify:true
+/announcement_remove item_id:1
+/announcement_list
+/announcement_clear
+```
+
+`expires_at` is optional and uses Japan time in `YYYY-MM-DD HH:MM` format.
+Use the two characters `\n` inside `message` to insert a line break. For
+example, `message:1行目\n2行目` is displayed as two lines in both the notification
+and the fixed Embed.
+Expired announcements are automatically hidden from the fixed Embed. Adding an
+announcement also posts it to `ANNOUNCEMENT_CHANNEL_ID`. The optional
+`notify:true` flag enables a mention; its default is `false`. If
+`ANNOUNCEMENT_MENTION_ROLE_ID` is set, that role is mentioned; otherwise the
+notification mentions `@everyone`. The bot needs permission to send messages,
+embed links, and, when notifications are enabled, mention the configured role
+or everyone in that channel.
+Removing an announcement stops its fixed-Embed display but does not delete the
+notification message already posted to the announcement channel.
 
 ## Donation message board
 
