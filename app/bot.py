@@ -346,8 +346,7 @@ class WidgetBot(discord.Client):
                 value=(
                     '`/vc_create` — VCと聞き専テキストを作成\n'
                     '`/vc_create limit:5 name:雑談` — 人数・名前を指定して作成\n'
-                    '固定サーバーEmbedのリアクションからも作成できます。\n'
-                    '既にVCへ参加中の場合は新規作成されません。'
+                    '固定サーバーEmbedのリアクションからも作成できます。'
                 ),
                 inline=False,
             )
@@ -728,11 +727,6 @@ class WidgetBot(discord.Client):
         if self.dynamic_voice is None or not isinstance(interaction.user, discord.Member):
             await interaction.response.send_message('動的VC機能は利用できません。', ephemeral=True)
             return
-        if interaction.user.voice and interaction.user.voice.channel:
-            await interaction.response.send_message(
-                '既に音声チャンネルへ参加しているため、新規作成しませんでした。', ephemeral=True,
-            )
-            return
         if limit is not None and not 0 <= limit <= 99:
             await interaction.response.send_message('人数は0～99で指定してください（0は無制限）。', ephemeral=True)
             return
@@ -742,8 +736,6 @@ class WidgetBot(discord.Client):
         await interaction.response.defer(ephemeral=True)
         try:
             voice, listen = await self.dynamic_voice.create(interaction.user, name, limit)
-        except ValueError:
-            await interaction.followup.send('既に音声チャンネルへ参加しているため、新規作成しませんでした。', ephemeral=True)
         except Exception:
             log.exception('Dynamic voice creation failed')
             await interaction.followup.send('チャンネルの作成に失敗しました。Botの権限とカテゴリ設定を確認してください。', ephemeral=True)
@@ -855,8 +847,6 @@ class WidgetBot(discord.Client):
             await message.remove_reaction(payload.emoji, member)
         except (discord.Forbidden, discord.HTTPException):
             log.warning('Could not remove dynamic voice reaction from user %s', member.id)
-        if member.voice and member.voice.channel:
-            return
         try:
             await self.dynamic_voice.create(member, name=channel_name)
         except Exception:

@@ -268,8 +268,8 @@ registers the following guild command:
 
 `limit` accepts 0–99; 0 means unlimited. When omitted, it uses
 `DYNAMIC_VOICE_DEFAULT_LIMIT`. The command and reaction create a normal voice
-channel plus a matching writable `｜聞き専` text channel. A user who is already
-connected to any voice channel cannot create another set.
+channel plus a matching writable `｜聞き専` text channel. Users can create a
+new set even while they are connected to another voice channel.
 
 When the voice channel remains empty for `DYNAMIC_VOICE_EMPTY_MINUTES` (10 by
 default), both the voice and text channels are deleted. Managed channel IDs are saved in

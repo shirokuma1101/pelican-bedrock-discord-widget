@@ -119,8 +119,6 @@ class DynamicVoiceManager:
 
     async def create(self, member: discord.Member, name: str | None = None,
                      limit: int | None = None) -> tuple[discord.VoiceChannel, discord.TextChannel]:
-        if member.voice and member.voice.channel:
-            raise ValueError('already_connected')
         category = self.guild.get_channel(self.category_id)
         if category is None:
             category = await self.guild.fetch_channel(self.category_id)
