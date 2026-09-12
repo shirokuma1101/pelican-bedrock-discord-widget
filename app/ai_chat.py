@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 class AIConsentView(discord.ui.View):
     def __init__(self, manager: 'LLMChatManager', message: discord.Message,
-                 bot_user: discord.ClientUser, prompt: str) -> None:
+                 prompt: str, bot_user: discord.ClientUser | None = None) -> None:
         super().__init__(timeout=300)
         self.manager = manager
         self.source_message = message
@@ -40,7 +40,7 @@ class AIConsentView(discord.ui.View):
         if self.prompt_message is not None:
             await self.prompt_message.edit(view=self)
         result = await self.manager.accept_consent(
-            self.source_message, self.bot_user, self.prompt, learn_history,
+            self.source_message, self.prompt, learn_history, self.bot_user,
         )
         await interaction.followup.send(result, ephemeral=True)
         self.stop()
@@ -146,33 +146,13 @@ class LLMChatManager:
             self.database.consent_status, message.author.id,
         )
         if terms_accepted is not True:
-            view = AIConsentView(self, message, bot_user, prompt)
-            embed = discord.Embed(
-                title='AIチャットの利用確認',
-                description=self.settings.llm_terms_text[:4000],
-                colour=discord.Colour.blurple(),
-            )
-            embed.add_field(
-                name='過去の発言の利用（任意）',
-                value=(
-                    f'許可すると、このチャンネルの直近の発言から最大'
-                    f'{self.settings.llm_history_learn_messages}件をDeepSeekへ送信し、'
-                    '会話用プロフィールとして要約・保存します。対象は同意した本人の発言だけです。'
-                    '同意した本人以外の発言は、DeepSeekへの送信・要約・保存には利用しません。'
-                    '元の発言をそのまま長期記憶には保存しません。'
-                ),
-                inline=False,
-            )
-            view.prompt_message = await message.reply(
-                embed=embed, view=view, mention_author=False,
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
+            await self._request_consent(message, prompt, bot_user)
             return
         await self._start_thread(message, bot_user, prompt)
 
     async def accept_consent(self, message: discord.Message,
-                             bot_user: discord.ClientUser, prompt: str,
-                             learn_history: bool) -> str:
+                             prompt: str, learn_history: bool,
+                             bot_user: discord.ClientUser | None = None) -> str:
         await asyncio.to_thread(
             self.database.upsert_user, message.author.id, message.author.display_name,
         )
@@ -195,11 +175,38 @@ class LLMChatManager:
                 await asyncio.to_thread(
                     self.database.mark_history_learned, message.author.id,
                 )
-        await self._start_thread(message, bot_user, prompt)
+        if bot_user is None:
+            await self._continue_after_consent(message, prompt)
+        else:
+            await self._start_thread(message, bot_user, prompt)
         return status
 
+    async def _request_consent(self, message: discord.Message, prompt: str,
+                               bot_user: discord.ClientUser | None = None) -> None:
+        view = AIConsentView(self, message, prompt, bot_user)
+        embed = discord.Embed(
+            title='AIチャットの利用確認',
+            description=self.settings.llm_terms_text[:4000],
+            colour=discord.Colour.blurple(),
+        )
+        embed.add_field(
+            name='過去の発言の利用（任意）',
+            value=(
+                f'許可すると、このチャンネルの直近の発言から最大'
+                f'{self.settings.llm_history_learn_messages}件をDeepSeekへ送信し、'
+                '会話用プロフィールとして要約・保存します。対象は同意した本人の発言だけです。'
+                '同意した本人以外の発言は、DeepSeekへの送信・要約・保存には利用しません。'
+                '元の発言をそのまま長期記憶には保存しません。'
+            ),
+            inline=False,
+        )
+        view.prompt_message = await message.reply(
+            embed=embed, view=view, mention_author=False,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+
     async def _learn_from_channel_history(self, message: discord.Message) -> int:
-        if not isinstance(message.channel, discord.TextChannel):
+        if not isinstance(message.channel, (discord.TextChannel, discord.Thread)):
             return 0
         contents: list[str] = []
         async for old_message in message.channel.history(
@@ -258,6 +265,17 @@ class LLMChatManager:
         if not content or message.guild is None or not isinstance(message.channel, discord.Thread):
             return
         await asyncio.to_thread(self.database.upsert_user, message.author.id, message.author.display_name)
+        terms_accepted, _ = await asyncio.to_thread(
+            self.database.consent_status, message.author.id,
+        )
+        if terms_accepted is not True:
+            await self._request_consent(message, content)
+            return
+        await self._continue_after_consent(message, content)
+
+    async def _continue_after_consent(self, message: discord.Message, content: str) -> None:
+        if message.guild is None or not isinstance(message.channel, discord.Thread):
+            return
         await self._respond(
             message.channel, message.author.id, message.author.display_name, content, message.id,
         )

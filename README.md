@@ -213,7 +213,9 @@ AI threads continue to work after a bot restart. Up to
 `LLM_MAX_HISTORY_MESSAGES` recent messages are sent with each request.
 
 On a user's first AI chat attempt, the bot displays the configured terms and
-requires an explicit choice. The user can accept with or without allowing past
+requires an explicit choice. This check also applies separately to every user
+who posts in an existing AI thread; an unaccepted message is not sent to the AI
+until its author accepts. The user can accept with or without allowing past
 messages to be used. If allowed, the bot searches up to
 `LLM_HISTORY_SCAN_LIMIT` messages in the AI channel, selects up to
 `LLM_HISTORY_LEARN_MESSAGES` messages written by that user, sends those messages

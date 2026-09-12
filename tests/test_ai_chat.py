@@ -1,7 +1,9 @@
 import asyncio
 from types import SimpleNamespace
 
-from app.ai_chat import LLMChatManager, split_discord_message, strip_bot_mention
+import discord
+
+from app.ai_chat import AIConsentView, LLMChatManager, split_discord_message, strip_bot_mention
 
 
 def test_strip_bot_mention_supports_both_discord_formats() -> None:
@@ -61,3 +63,49 @@ def test_complete_sends_deepseek_authentication_and_model() -> None:
     assert session.url == 'https://api.deepseek.com/v1/chat/completions'
     assert session.kwargs['headers']['Authorization'] == 'Bearer secret-key'
     assert session.kwargs['json']['model'] == 'deepseek-v4-flash'
+
+
+def test_continue_chat_requires_each_users_consent() -> None:
+    settings = SimpleNamespace(
+        llm_database_file=':memory:',
+        llm_max_concurrent_requests=1,
+        llm_terms_text='terms',
+        llm_history_learn_messages=30,
+    )
+    manager = LLMChatManager(settings, SimpleNamespace())
+    calls = []
+
+    class FakeDatabase:
+        def upsert_user(self, user_id, display_name):
+            calls.append(('upsert', user_id, display_name))
+
+        def consent_status(self, user_id):
+            return None, None
+
+    class FakeMessage:
+        def __init__(self):
+            self.content = '未同意ユーザーの発言'
+            self.guild = object()
+            self.channel = object()
+            self.author = SimpleNamespace(id=22, display_name='guest')
+            self.id = 123
+            self.reply_kwargs = None
+
+        async def reply(self, **kwargs):
+            self.reply_kwargs = kwargs
+            return SimpleNamespace()
+
+    manager.database = FakeDatabase()
+    message = FakeMessage()
+
+    # Make the lightweight fake channel pass the runtime Discord type check.
+    original_thread_type = discord.Thread
+    try:
+        discord.Thread = object
+        asyncio.run(manager.continue_chat(message))
+    finally:
+        discord.Thread = original_thread_type
+
+    assert calls == [('upsert', 22, 'guest')]
+    assert message.reply_kwargs is not None
+    assert isinstance(message.reply_kwargs['view'], AIConsentView)
